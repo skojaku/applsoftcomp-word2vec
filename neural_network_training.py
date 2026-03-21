@@ -830,14 +830,22 @@ def _(
             marker=dict(color=CATEGORY_COLORS[_cat], size=12),
         ))
 
-    # Current pair: dashed orange line + large highlighted markers
+    # Current pair: dashed grey line connecting the two words
     _traces.append(_go.Scatter(
         x=[float(_e[_ia, 0]), float(_e[_ib, 0])],
         y=[float(_e[_ia, 1]), float(_e[_ib, 1])],
-        mode="markers+lines",
+        mode="lines",
         showlegend=False,
-        line=dict(color="orange", dash="dash", width=2),
-        marker=dict(color="orange", size=18, line=dict(color="black", width=2)),
+        line=dict(color="#555", dash="dash", width=1.5),
+    ))
+    # Ring highlights on the two current-pair dots (keep their category colour)
+    _traces.append(_go.Scatter(
+        x=[float(_e[_ia, 0]), float(_e[_ib, 0])],
+        y=[float(_e[_ia, 1]), float(_e[_ib, 1])],
+        mode="markers",
+        showlegend=False,
+        marker=dict(color="rgba(0,0,0,0)", size=22,
+                    line=dict(color="#333", width=2.5)),
         hovertemplate="%{text}<extra>current pair</extra>",
         text=[_pair_a, _pair_b],
     ))
@@ -1018,7 +1026,7 @@ def _(mo, win_sent_dd, win_tgt_sl, win_ws_sl):
         if _i == _t:
             _bg, _fc = "#e74c3c", "white"
         elif abs(_i - _t) <= _k:
-            _bg, _fc = "#27ae60", "white"
+            _bg, _fc = "#2980b9", "white"
         else:
             _bg, _fc = "#ecf0f1", "#555"
         _ax_win.add_patch(_mp_win.FancyBboxPatch(
@@ -1047,7 +1055,7 @@ def _(mo, win_sent_dd, win_tgt_sl, win_ws_sl):
         mo.md("## Interactive: Sliding Window → Training Pairs"),
         mo.md(
             "Move the sliders to explore how a co-occurrence window generates pairs from raw text.  \n"
-            "🔴 **Red** = target word · 🟢 **Green** = context window (positive) · ⬜ **Grey** = outside (negative pool)"
+            "🔴 **Red** = target word · 🔵 **Blue** = context window (positive) · ⬜ **Grey** = outside (negative pool)"
         ),
         mo.hstack([win_sent_dd, win_ws_sl, win_tgt_sl], gap=1.5, align="end"),
         mo.image(_buf_win.getvalue(), width=720),
