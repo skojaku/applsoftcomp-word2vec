@@ -496,126 +496,184 @@ def _(mo):
     mo.md(r"""
     ---
 
-    # Part II — From Pixels to Words
+    # Part II — From Pixels to Words: Word Embeddings
 
-    ## One-hot encoding
+    ## Step 1 — One-hot encoding: words as vectors
 
-    A vocabulary of $V$ words can be represented as vectors where word $i$ is a binary vector
-    $\mathbf{x}_i \in \{0,1\}^V$ with a 1 only at position $i$ (all others 0).
+    Images are natural vectors (pixel grids). Words aren't. We need to convert them.
 
-    When we feed $\mathbf{x}_i$ into the perceptron:
+    The standard trick: **one-hot encoding**. For a vocabulary of $V$ words, assign word $i$
+    the binary vector $\mathbf{x}_i \in \{0,1\}^V$ — all zeros except a single 1 at
+    position $i$.
 
-    \[
-    \text{output} = \mathbf{w}^\top \mathbf{x}_i = w_i
-    \]
+    $$\text{cat} \to [1,0,0,\ldots,0], \quad
+      \text{dog} \to [0,1,0,\ldots,0], \quad
+      \text{bird} \to [0,0,1,\ldots,0], \quad \ldots$$
 
-    The one-hot vector simply **selects the $i$-th weight**. So the weight $w_i$ is exactly
-    the "score" the model assigns to word $i$.
+    Now plug this into the perceptron from Part I:
 
-    For example, a sentiment classifier might learn $w_\text{happy} > 0$ (positive word)
-    and $w_\text{sad} < 0$ (negative word). The output $> 0$ means positive sentiment.
+    $$\text{output} = \mathbf{w}^\top \mathbf{x}_i = w_i$$
+
+    The dot product simply **selects the $i$-th weight**. So the weight $w_i$ is the
+    model's score for word $i$.
+
+    **Sentiment example:** train on positive/negative sentences and the model learns
+    $w_\text{happy} > 0$, $w_\text{sad} < 0$. Output $> 0$ ↦ positive sentiment.
+
+    > **But there's a problem.** Every word gets just *one number*. What happens when
+    > we need more than two semantic groups?
     """)
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
-    ## From One Output to Many — Word Embeddings
+    import io as _io_1d
+    import matplotlib.pyplot as _plt_1d
 
-    Instead of a single output neuron, use **two** output neurons. The weight matrix is
-    now $W \in \mathbb{R}^{V \times 2}$:
+    # Hand-crafted 1-D positions that show overlap
+    _CAT_1D = {
+        "animal":  (["cat",   "dog",  "bird"],  [-0.75, -0.20,  0.50], "#e67e22"),
+        "action":  (["run",   "jump", "walk"],  [-0.45,  0.30,  0.65], "#27ae60"),
+        "emotion": (["happy", "sad",  "calm"],  [ 0.10, -0.40,  0.40], "#e74c3c"),
+    }
+    # Ideal 2-D positions (manually separated clusters)
+    _POS_2D = {
+        "cat":   (-1.2, -0.9), "dog": (-0.9, -0.5), "bird": (-1.1, -0.2),
+        "run":   ( 0.9, -0.8), "jump": (1.1, -0.3), "walk": ( 0.7, -0.6),
+        "happy": (-0.1,  1.1), "sad":  (0.4,  0.8), "calm": (-0.4,  0.9),
+    }
 
-    \[
-    \mathbf{o}_i = W^\top \mathbf{x}_i = \text{row}_i(W) \in \mathbb{R}^2
-    \]
+    _fig1d, (_ax1, _ax2) = _plt_1d.subplots(1, 2, figsize=(11, 3.2))
 
-    Row $i$ of $W$ is the **2-dimensional embedding** $\mathbf{e}_i$ of word $i$ — a
-    coordinate in 2D space.
+    # Left: 1-D number line
+    for _cat, (_words, _xs, _col) in _CAT_1D.items():
+        _ax1.scatter(_xs, [0] * 3, color=_col, s=130, zorder=3, label=_cat)
+        for _w, _x in zip(_words, _xs):
+            _ax1.annotate(_w, (_x, 0), xytext=(0, 12), textcoords="offset points",
+                          ha="center", fontsize=9)
+    _ax1.axhline(0, color="#aaa", linewidth=1.5)
+    _ax1.set_xlim(-1.3, 1.1)
+    _ax1.set_ylim(-0.3, 0.35)
+    _ax1.set_yticks([])
+    _ax1.set_xlabel("Single score  $w_i$", fontsize=11)
+    _ax1.set_title("1 output neuron → number line\n(3 groups can't be separated cleanly)", fontsize=11)
+    _ax1.legend(loc="lower right", fontsize=9)
 
-    **Geometric interpretation:** words with similar meaning end up **close** to each other
-    in this 2D space. Distance encodes semantic similarity. This is the core idea behind
-    word2vec, GloVe, and modern language model embeddings.
-    """)
+    # Right: ideal 2-D clusters
+    for _cat, (_words, _, _col) in _CAT_1D.items():
+        _xs2 = [_POS_2D[_w][0] for _w in _words]
+        _ys2 = [_POS_2D[_w][1] for _w in _words]
+        _ax2.scatter(_xs2, _ys2, color=_col, s=130, zorder=3, label=_cat)
+        for _w in _words:
+            _ax2.annotate(_w, _POS_2D[_w], xytext=(6, 4), textcoords="offset points", fontsize=9)
+    _ax2.set_xlabel("Dimension 1", fontsize=11)
+    _ax2.set_ylabel("Dimension 2", fontsize=11)
+    _ax2.set_title("2 output neurons → 2-D plane\n(clusters emerge!)", fontsize=11)
+    _ax2.legend(loc="upper right", fontsize=9)
+    _ax2.grid(True, alpha=0.3)
+
+    _plt_1d.tight_layout()
+    _buf_1d = _io_1d.BytesIO()
+    _fig1d.savefig(_buf_1d, format="png", dpi=110, bbox_inches="tight", facecolor="white")
+    _plt_1d.close(_fig1d)
+
+    mo.vstack([
+        mo.md("## Step 2 — Why More Than One Output Neuron?"),
+        mo.md(
+            "With **one output**, every word collapses to a single number on a line. "
+            "A line can be cut at most **once** — separating two groups. "
+            "For **three or more semantic categories**, some groups will always overlap.\n\n"
+            "Adding a **second output neuron** gives each word **2-D coordinates** — a point in a plane. "
+            "Now three (or more) clusters can occupy different regions of the space."
+        ),
+        mo.image(_buf_1d.getvalue(), width=740),
+        mo.callout(
+            mo.md(
+                "**Key idea:** with $K$ output neurons, each word gets a $K$-dimensional vector "
+                "— its **embedding** $\\mathbf{e}_i \\in \\mathbb{R}^K$. "
+                "We use $K = 2$ here so we can draw the space directly. "
+                "Real models use $K = 100$–$300$."
+            ),
+            kind="info",
+        ),
+    ], gap=1)
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Training with Pairs: Positives and Negatives
+    ## Step 3 — Training the Embeddings with Word Pairs
+
+    The weight matrix is now $W \in \mathbb{R}^{V \times 2}$. For word $i$:
+
+    $$\mathbf{e}_i = W^\top \mathbf{x}_i = \text{row}_i(W) \in \mathbb{R}^2$$
 
     We train by showing the model **pairs** of words and clicking whether they should be
     **closer** or **farther** in the embedding space.
 
-    - **Positive pairs** (semantically related): *cat & dog*, *happy & calm* → click **Closer**
-    - **Negative pairs** (unrelated, randomly drawn): *cat & car*, *happy & tree* → click **Farther**
-
-    The update rule uses $\boldsymbol{\delta} = \mathbf{e}_j - \mathbf{e}_i$ computed from
+    The update uses $\boldsymbol{\delta} = \mathbf{e}_j - \mathbf{e}_i$ computed from
     the **original** values before any update:
 
-    | Click | Rule |
-    |-------|------|
-    | Closer | $\mathbf{e}_i \mathrel{+}= \eta\,\boldsymbol{\delta}$ ; $\mathbf{e}_j \mathrel{-}= \eta\,\boldsymbol{\delta}$ |
-    | Farther | $\mathbf{e}_i \mathrel{-}= \eta\,\boldsymbol{\delta}$ ; $\mathbf{e}_j \mathrel{+}= \eta\,\boldsymbol{\delta}$ |
+    | Click | Update |
+    |-------|--------|
+    | **Closer** | $\mathbf{e}_i \mathrel{+}= \eta\,\boldsymbol{\delta}$ ; $\mathbf{e}_j \mathrel{-}= \eta\,\boldsymbol{\delta}$ |
+    | **Farther** | $\mathbf{e}_i \mathrel{-}= \eta\,\boldsymbol{\delta}$ ; $\mathbf{e}_j \mathrel{+}= \eta\,\boldsymbol{\delta}$ |
 
-    Clicking **Closer** moves both embeddings toward their midpoint.
-    Clicking **Farther** pushes them apart.
+    **Closer** moves both toward their midpoint. **Farther** pushes them apart.
+
+    ---
+
+    ### Try it: three semantic clusters
+
+    Below are **15 words** in three groups — animals, actions, emotions (5 each).
+    The embeddings start **random**. Your goal: train until each group forms its own cluster.
+
+    - Click **Closer ↔** or **Farther ↔** to update one pair at a time.
+    - Click **Train 20 steps ▶** to run 20 correct updates automatically and watch the clusters form.
+    - Click **Randomize** to reset and start fresh.
     """)
     return
 
 
 @app.cell(hide_code=True)
 def _():
+    # Three clean semantic clusters (5 words each = 15 total)
     VOCAB = [
-        "cat", "dog", "bird", "fish",
-        "red", "blue",
+        "cat", "dog", "bird", "fish", "horse",
+        "run", "walk", "jump", "swim", "fly",
         "happy", "sad", "angry", "calm", "joyful",
-        "run", "walk", "jump", "sleep",
-        "car", "tree", "house", "book",
     ]
     WORD_INDEX = {w: i for i, w in enumerate(VOCAB)}
 
     CATEGORIES = {
-        "animal":  ["cat", "dog", "bird", "fish"],
-        "color":   ["red", "blue"],
+        "animal":  ["cat", "dog", "bird", "fish", "horse"],
+        "action":  ["run", "walk", "jump", "swim", "fly"],
         "emotion": ["happy", "sad", "angry", "calm", "joyful"],
-        "action":  ["run", "walk", "jump", "sleep"],
-        "object":  ["car", "tree", "house", "book"],
     }
     CATEGORY_COLORS = {
         "animal":  "#e67e22",
-        "color":   "#9b59b6",
-        "emotion": "#e74c3c",
         "action":  "#27ae60",
-        "object":  "#2980b9",
+        "emotion": "#e74c3c",
     }
 
+    # Positive pairs: within each category
     POS_PAIRS = [
-        ("cat",   "dog"),
-        ("cat",   "bird"),
-        ("dog",   "fish"),
-        ("happy", "calm"),
-        ("happy", "joyful"),
-        ("sad",   "angry"),
-        ("run",   "walk"),
-        ("run",   "jump"),
-        ("walk",  "sleep"),
-        ("red",   "blue"),
+        ("cat",   "dog"),   ("cat",   "bird"),  ("dog",   "fish"),
+        ("fish",  "horse"), ("bird",  "horse"),
+        ("run",   "walk"),  ("run",   "jump"),  ("walk",  "swim"),
+        ("jump",  "fly"),   ("swim",  "fly"),
+        ("happy", "calm"),  ("happy", "joyful"), ("sad",  "angry"),
+        ("calm",  "sad"),   ("joyful","angry"),
     ]
+    # Negative pairs: across categories
     NEG_PAIRS = [
-        ("cat",   "car"),
-        ("cat",   "happy"),
-        ("dog",   "run"),
-        ("dog",   "tree"),
-        ("bird",  "house"),
-        ("fish",  "book"),
-        ("happy", "car"),
-        ("sad",   "tree"),
-        ("run",   "red"),
-        ("walk",  "blue"),
-        ("jump",  "house"),
-        ("sleep", "book"),
+        ("cat",  "run"),   ("dog",   "happy"), ("bird",  "sad"),
+        ("fish", "jump"),  ("horse", "calm"),
+        ("run",  "happy"), ("walk",  "sad"),   ("jump",  "angry"),
+        ("swim", "joyful"),("fly",   "calm"),
+        ("cat",  "happy"), ("dog",   "run"),
     ]
 
     PAIR_QUEUE = [(a, b, True) for a, b in POS_PAIRS] + [(a, b, False) for a, b in NEG_PAIRS]
@@ -632,30 +690,24 @@ def _():
 
 
 @app.cell(hide_code=True)
-def _(VOCAB, WORD_INDEX, POS_PAIRS, NEG_PAIRS):
+def _(WORD_INDEX, POS_PAIRS, NEG_PAIRS):
     import numpy as _np_sim
-
 
     def compute_similarity(emb, word_a, word_b) -> float:
         ea = emb[WORD_INDEX[word_a]].astype(_np_sim.float64)
         eb = emb[WORD_INDEX[word_b]].astype(_np_sim.float64)
-        norm_a = float(_np_sim.linalg.norm(ea))
-        norm_b = float(_np_sim.linalg.norm(eb))
-        if norm_a < 1e-12 or norm_b < 1e-12:
+        na = float(_np_sim.linalg.norm(ea))
+        nb = float(_np_sim.linalg.norm(eb))
+        if na < 1e-12 or nb < 1e-12:
             return 0.0
-        return float(_np_sim.dot(ea, eb) / (norm_a * norm_b))
-
+        return float(_np_sim.dot(ea, eb) / (na * nb))
 
     def evaluate_pair_accuracy(emb):
-        pos_correct = sum(
-            1 for a, b in POS_PAIRS if compute_similarity(emb, a, b) > 0
-        )
-        neg_correct = sum(
-            1 for a, b in NEG_PAIRS if compute_similarity(emb, a, b) < 0
-        )
-        pos_acc = pos_correct / len(POS_PAIRS) if POS_PAIRS else 0.0
-        neg_acc = neg_correct / len(NEG_PAIRS) if NEG_PAIRS else 0.0
-        overall = (pos_correct + neg_correct) / (len(POS_PAIRS) + len(NEG_PAIRS))
+        pos_ok = sum(1 for a, b in POS_PAIRS if compute_similarity(emb, a, b) > 0)
+        neg_ok = sum(1 for a, b in NEG_PAIRS if compute_similarity(emb, a, b) < 0)
+        pos_acc = pos_ok / max(1, len(POS_PAIRS))
+        neg_acc = neg_ok / max(1, len(NEG_PAIRS))
+        overall = (pos_ok + neg_ok) / max(1, len(POS_PAIRS) + len(NEG_PAIRS))
         return pos_acc, neg_acc, overall
 
     return compute_similarity, evaluate_pair_accuracy
@@ -667,81 +719,82 @@ def _(mo, VOCAB, WORD_INDEX, PAIR_QUEUE, evaluate_pair_accuracy):
 
     _V = len(VOCAB)
 
-    emb, set_emb = mo.state(
-        _np_emb.random.randn(_V, 2).astype(_np_emb.float32) * 0.1
-    )
+    emb, set_emb = mo.state(_np_emb.random.randn(_V, 2).astype(_np_emb.float32) * 0.1)
     emb_click_count, set_emb_click_count = mo.state(0)
     emb_pair_idx, set_emb_pair_idx = mo.state(0)
     emb_accuracy_history, set_emb_accuracy_history = mo.state([])
 
-    def _apply_update(is_closer: bool) -> None:
-        _eta = float(emb_lr_slider.value)
-        _e0 = emb()
-        _pidx = int(emb_pair_idx()) % len(PAIR_QUEUE)
-        _word_a, _word_b, _ = PAIR_QUEUE[_pidx]
-        _ia = WORD_INDEX[_word_a]
-        _ib = WORD_INDEX[_word_b]
-        _ea = _e0[_ia].astype(_np_emb.float64, copy=True)
-        _eb = _e0[_ib].astype(_np_emb.float64, copy=True)
-        _delta = _eb - _ea
-        _new_e = _e0.astype(_np_emb.float32, copy=True)
+    # Slider defined before callbacks so closures can reference it
+    emb_lr_slider = mo.ui.slider(
+        start=0.05, stop=0.5, step=0.05, value=0.1,
+        label="Learning rate η", show_value=True, include_input=True, full_width=True,
+    )
+
+    def _step(e, pi_raw, eta, is_closer):
+        """Apply one update step; returns updated embedding array."""
+        _pi = pi_raw % len(PAIR_QUEUE)
+        _wa, _wb, _ = PAIR_QUEUE[_pi]
+        _ia, _ib = WORD_INDEX[_wa], WORD_INDEX[_wb]
+        _ea = e[_ia].astype(_np_emb.float64, copy=True)
+        _eb = e[_ib].astype(_np_emb.float64, copy=True)
+        _d = _eb - _ea
+        _ne = e.astype(_np_emb.float32, copy=True)
         if is_closer:
-            _new_e[_ia] = (_ea + _eta * _delta).astype(_np_emb.float32)
-            _new_e[_ib] = (_eb - _eta * _delta).astype(_np_emb.float32)
+            _ne[_ia] = (_ea + eta * _d).astype(_np_emb.float32)
+            _ne[_ib] = (_eb - eta * _d).astype(_np_emb.float32)
         else:
-            _new_e[_ia] = (_ea - _eta * _delta).astype(_np_emb.float32)
-            _new_e[_ib] = (_eb + _eta * _delta).astype(_np_emb.float32)
-        set_emb(_new_e)
+            _ne[_ia] = (_ea - eta * _d).astype(_np_emb.float32)
+            _ne[_ib] = (_eb + eta * _d).astype(_np_emb.float32)
+        return _ne
+
+    def _apply(is_closer):
+        _eta = float(emb_lr_slider.value)
+        _pi_raw = int(emb_pair_idx())
+        _ne = _step(emb(), _pi_raw, _eta, is_closer)
+        set_emb(_ne)
         _c = int(emb_click_count()) + 1
         set_emb_click_count(_c)
-        set_emb_pair_idx(_pidx + 1)
-        _acc = evaluate_pair_accuracy(_new_e)
+        set_emb_pair_idx(_pi_raw + 1)
         _hist = list(emb_accuracy_history())
-        _hist.append((_c, _acc))
+        _hist.append((_c, evaluate_pair_accuracy(_ne)))
         set_emb_accuracy_history(_hist)
 
-    def _on_closer(_v=None):
-        _apply_update(is_closer=True)
+    def _on_closer(_v=None):    _apply(True)
+    def _on_farther(_v=None):   _apply(False)
 
-    def _on_farther(_v=None):
-        _apply_update(is_closer=False)
+    def _on_auto_train(_v=None):
+        """Run 20 steps automatically, always choosing the correct direction."""
+        _eta = float(emb_lr_slider.value)
+        _e = emb()
+        _pi_raw = int(emb_pair_idx())
+        _c = int(emb_click_count())
+        _hist = list(emb_accuracy_history())
+        for _ in range(20):
+            _pi = _pi_raw % len(PAIR_QUEUE)
+            _, _, _is_pos = PAIR_QUEUE[_pi]
+            _e = _step(_e, _pi_raw, _eta, _is_pos)
+            _pi_raw += 1
+            _c += 1
+            _hist.append((_c, evaluate_pair_accuracy(_e)))
+        set_emb(_e)
+        set_emb_click_count(_c)
+        set_emb_pair_idx(_pi_raw)
+        set_emb_accuracy_history(_hist)
 
-    def _on_randomize_emb(_v=None):
+    def _on_randomize(_v=None):
         set_emb(_np_emb.random.randn(_V, 2).astype(_np_emb.float32) * 0.1)
         set_emb_click_count(0)
         set_emb_pair_idx(0)
         set_emb_accuracy_history([])
 
-    emb_lr_slider = mo.ui.slider(
-        start=0.05,
-        stop=0.5,
-        step=0.05,
-        value=0.1,
-        label="Learning rate η",
-        show_value=True,
-        include_input=True,
-        full_width=True,
-    )
-    closer_btn = mo.ui.button(
-        label="Closer ↔",
-        on_click=_on_closer,
-        kind="success",
-        tooltip="Move the two words closer in embedding space.",
-    )
-    farther_btn = mo.ui.button(
-        label="Farther ↔",
-        on_click=_on_farther,
-        kind="danger",
-        tooltip="Push the two words farther apart in embedding space.",
-    )
-    randomize_emb_btn = mo.ui.button(
-        label="Randomize",
-        on_click=_on_randomize_emb,
-        kind="neutral",
-        tooltip="Reset embeddings to random values.",
-    )
+    closer_btn     = mo.ui.button(label="Closer ↔",         on_click=_on_closer,     kind="success")
+    farther_btn    = mo.ui.button(label="Farther ↔",        on_click=_on_farther,    kind="danger")
+    auto_train_btn = mo.ui.button(label="Train 20 steps ▶", on_click=_on_auto_train, kind="warn",
+                                  tooltip="Run 20 correct updates automatically.")
+    randomize_emb_btn = mo.ui.button(label="Randomize", on_click=_on_randomize, kind="neutral")
 
     return (
+        auto_train_btn,
         closer_btn,
         emb,
         emb_accuracy_history,
@@ -756,7 +809,6 @@ def _(mo, VOCAB, WORD_INDEX, PAIR_QUEUE, evaluate_pair_accuracy):
 @app.cell(hide_code=True)
 def _(
     mo,
-    VOCAB,
     WORD_INDEX,
     CATEGORIES,
     CATEGORY_COLORS,
@@ -766,12 +818,12 @@ def _(
     emb_pair_idx,
     closer_btn,
     farther_btn,
+    auto_train_btn,
     randomize_emb_btn,
     emb_lr_slider,
 ):
     import io as _io_emb
     import matplotlib.pyplot as _plt_emb
-    import numpy as _np_ui
 
     _e = emb()
     _pidx = int(emb_pair_idx()) % len(PAIR_QUEUE)
@@ -780,26 +832,23 @@ def _(
     _ib = WORD_INDEX[_pair_b]
 
     _fig, _ax = _plt_emb.subplots(figsize=(7, 6))
-
     for _cat_name, _words in CATEGORIES.items():
         _xs = [float(_e[WORD_INDEX[w], 0]) for w in _words]
         _ys = [float(_e[WORD_INDEX[w], 1]) for w in _words]
-        _ax.scatter(_xs, _ys, color=CATEGORY_COLORS[_cat_name], s=80, zorder=3, label=_cat_name)
+        _ax.scatter(_xs, _ys, color=CATEGORY_COLORS[_cat_name], s=90, zorder=3, label=_cat_name)
         for _w, _x, _y in zip(_words, _xs, _ys):
             _ax.annotate(_w, (_x, _y), xytext=(6, 4), textcoords="offset points", fontsize=10)
-
     # Highlight current pair
     _ax.scatter(
         [float(_e[_ia, 0]), float(_e[_ib, 0])],
         [float(_e[_ia, 1]), float(_e[_ib, 1])],
-        color="orange", s=180, zorder=4, edgecolors="black", linewidths=1.5,
+        color="orange", s=220, zorder=4, edgecolors="black", linewidths=1.5,
     )
     _ax.plot(
         [float(_e[_ia, 0]), float(_e[_ib, 0])],
         [float(_e[_ia, 1]), float(_e[_ib, 1])],
-        color="orange", linestyle="--", linewidth=1.5, zorder=3,
+        color="orange", linestyle="--", linewidth=2, zorder=3,
     )
-
     _ax.set_title("Word Embeddings (2D)")
     _ax.set_xlabel("Dimension 1")
     _ax.set_ylabel("Dimension 2")
@@ -810,27 +859,23 @@ def _(
     _buf = _io_emb.BytesIO()
     _fig.savefig(_buf, format="png", dpi=110, bbox_inches="tight", facecolor="white", edgecolor="none")
     _plt_emb.close(_fig)
-    _scatter_img = mo.image(_buf.getvalue(), width=640)
 
-    _pair_type = "positive (related)" if _is_pos else "negative (unrelated)"
+    _ptype = "related ✓ (same category)" if _is_pos else "unrelated ✗ (different category)"
     _pair_md = mo.md(
-        f"**Current pair:** *{_pair_a}* & *{_pair_b}* — {_pair_type}  \n"
-        f"Click **Closer** if they should be similar, **Farther** if not."
+        f"**Current pair:** *{_pair_a}* & *{_pair_b}* — {_ptype}  \n"
+        f"Click **Closer** to pull them together, **Farther** to push apart, "
+        f"or **Train 20 steps** to run automatically."
     )
-    _status_md = mo.md(
-        f"Clicks: **{int(emb_click_count())}** · Pair {_pidx + 1}/{len(PAIR_QUEUE)} · η = **{float(emb_lr_slider.value):g}**"
+    _status = mo.md(
+        f"Clicks: **{int(emb_click_count())}** · "
+        f"Pair {_pidx + 1}/{len(PAIR_QUEUE)} · η = **{float(emb_lr_slider.value):g}**"
     )
-    _buttons = mo.hstack([randomize_emb_btn, closer_btn, farther_btn], justify="start", gap=1)
-
+    _btns = mo.hstack(
+        [randomize_emb_btn, closer_btn, farther_btn, auto_train_btn],
+        justify="start", gap=1,
+    )
     mo.vstack(
-        [
-            mo.md("## Interactive Word Embedding Training"),
-            emb_lr_slider,
-            _pair_md,
-            _scatter_img,
-            _buttons,
-            _status_md,
-        ],
+        [emb_lr_slider, _pair_md, mo.image(_buf.getvalue(), width=640), _btns, _status],
         gap=1.25,
     )
     return
@@ -842,35 +887,33 @@ def _(mo, emb_accuracy_history, emb, evaluate_pair_accuracy):
     import matplotlib.pyplot as _plt_chart
 
     _hist = emb_accuracy_history()
-    _cur_pos, _cur_neg, _cur_all = evaluate_pair_accuracy(emb())
+    _cp, _cn, _ca = evaluate_pair_accuracy(emb())
 
     if not _hist:
-        _chart_panel = mo.vstack(
-            [
-                mo.md("## Pair Accuracy vs Training Clicks"),
-                mo.callout(
-                    mo.md(
-                        f"**Current accuracy:** pos {_cur_pos*100:.1f}% · neg {_cur_neg*100:.1f}% · overall {_cur_all*100:.1f}%  \n"
-                        "*No training clicks recorded yet — click **Closer** or **Farther** to start.*"
-                    ),
-                    kind="neutral",
+        _chart_panel = mo.vstack([
+            mo.md("## Pair Accuracy vs Training Steps"),
+            mo.callout(
+                mo.md(
+                    f"**Current:** pos {_cp*100:.0f}% · neg {_cn*100:.0f}% · overall {_ca*100:.0f}%  \n"
+                    "*Click any training button to start the accuracy chart.*"
                 ),
-            ]
-        )
+                kind="neutral",
+            ),
+        ])
     else:
-        _xs = [h[0] for h in _hist]
-        _pos_ys = [h[1][0] * 100.0 for h in _hist]
-        _neg_ys = [h[1][1] * 100.0 for h in _hist]
-        _all_ys = [h[1][2] * 100.0 for h in _hist]
+        _xs   = [h[0] for h in _hist]
+        _py   = [h[1][0] * 100 for h in _hist]
+        _ny   = [h[1][1] * 100 for h in _hist]
+        _ay   = [h[1][2] * 100 for h in _hist]
 
         _fig2, _ax2 = _plt_chart.subplots(figsize=(6.4, 3.4))
-        _ax2.plot(_xs, _pos_ys, marker="o", color="#27ae60", label="Positive pair acc")
-        _ax2.plot(_xs, _neg_ys, marker="s", color="#e74c3c", label="Negative pair acc")
-        _ax2.plot(_xs, _all_ys, marker="^", color="#1976d2", label="Overall acc")
-        _ax2.axhline(50.0, color="#9e9e9e", linestyle="--", linewidth=1.5, label="50% baseline")
-        _ax2.set_xlabel("Training click")
+        _ax2.plot(_xs, _py, color="#27ae60", marker=".", label="Positive pair acc")
+        _ax2.plot(_xs, _ny, color="#e74c3c", marker=".", label="Negative pair acc")
+        _ax2.plot(_xs, _ay, color="#1976d2", marker=".", label="Overall acc")
+        _ax2.axhline(50, color="#9e9e9e", linestyle="--", linewidth=1.5, label="50% baseline")
+        _ax2.set_xlabel("Training step")
         _ax2.set_ylabel("Accuracy (%)")
-        _ax2.set_title("Word embedding pair accuracy")
+        _ax2.set_title("Pair accuracy over training")
         _ax2.set_ylim(0, 100)
         _ax2.grid(True, alpha=0.3)
         _ax2.legend(loc="best")
@@ -879,21 +922,193 @@ def _(mo, emb_accuracy_history, emb, evaluate_pair_accuracy):
         _buf2 = _io_chart.BytesIO()
         _fig2.savefig(_buf2, format="png", dpi=110, bbox_inches="tight", facecolor="white", edgecolor="none")
         _plt_chart.close(_fig2)
-
-        _chart_panel = mo.vstack(
-            [
-                mo.md("## Pair Accuracy vs Training Clicks"),
-                mo.callout(
-                    mo.md(
-                        f"**Current accuracy:** pos {_cur_pos*100:.1f}% · neg {_cur_neg*100:.1f}% · overall {_cur_all*100:.1f}%"
-                    ),
-                    kind="success" if _cur_all >= 0.55 else "info",
-                ),
-                mo.image(_buf2.getvalue(), width=640),
-            ]
-        )
+        _chart_panel = mo.vstack([
+            mo.md("## Pair Accuracy vs Training Steps"),
+            mo.callout(
+                mo.md(f"**Current:** pos {_cp*100:.0f}% · neg {_cn*100:.0f}% · overall {_ca*100:.0f}%"),
+                kind="success" if _ca >= 0.55 else "info",
+            ),
+            mo.image(_buf2.getvalue(), width=640),
+        ])
 
     _chart_panel
+    return
+
+
+# ── Step 4: Self-supervised training via co-occurrence windows ───────────────
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ---
+
+    ## Step 4 — From Hand-labelled Pairs to Self-supervised Learning
+
+    So far we labelled every pair by hand. For a vocabulary of 50,000 words that would
+    require billions of labels. There's a smarter way.
+
+    **Firth's distributional hypothesis (1957):**
+    > "You shall know a word by the company it keeps."
+
+    Words that appear **near each other** in text tend to be semantically related —
+    *cat* and *dog* both appear near *pet*, *feed*, *play*. We can exploit this for free.
+
+    ### The sliding-window trick
+
+    Slide a **context window** of half-width $k$ over a sentence.
+    For each **target word** at position $t$:
+
+    | Pair type | How it's generated |
+    |-----------|-------------------|
+    | **Positive** | target + every word within $k$ positions (left or right) |
+    | **Negative** | target + random words sampled from *outside* the window |
+
+    This turns raw text into millions of training pairs — **zero human labelling required**.
+    This is the core idea behind **word2vec** (Mikolov et al., 2013).
+
+    Use the interactive demo below to see exactly which pairs are generated.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    import io as _io_win
+    import matplotlib.pyplot as _plt_win
+    import matplotlib.patches as _mp_win
+    import random as _rnd_win
+
+    _SENTS = [
+        "the cat chased the mouse near the big old tree",
+        "the dog ran quickly across the green park today",
+        "she felt happy and very calm after the long walk",
+        "a small fish swam slowly under the dark blue water",
+    ]
+
+    _sent_dd = mo.ui.dropdown(
+        options={f"[{i+1}]  {s}": s for i, s in enumerate(_SENTS)},
+        value=_SENTS[0],
+        label="Sentence",
+    )
+    _ws_sl  = mo.ui.slider(start=1, stop=3, step=1, value=2,
+                           label="Window size  k", show_value=True)
+    _tgt_sl = mo.ui.slider(start=0, stop=9, step=1, value=1,
+                           label="Target word (index)", show_value=True)
+
+    # ── reactive computation ──
+    _words = _sent_dd.value.split()
+    _k     = int(_ws_sl.value)
+    _t     = min(int(_tgt_sl.value), len(_words) - 1)
+
+    _pos_pairs_win = []
+    for _off in range(1, _k + 1):
+        if _t - _off >= 0:
+            _pos_pairs_win.append((_words[_t], _words[_t - _off], _t - _off))
+        if _t + _off < len(_words):
+            _pos_pairs_win.append((_words[_t], _words[_t + _off], _t + _off))
+
+    _outside_idx = [i for i in range(len(_words)) if abs(i - _t) > _k]
+    _rnd_win.seed(0)
+    _neg_idx_win = _rnd_win.sample(_outside_idx, min(3, len(_outside_idx)))
+    _neg_pairs_win = [(_words[_t], _words[i], i) for i in sorted(_neg_idx_win)]
+
+    # ── sentence visualisation ──
+    _fig_win, _ax_win = _plt_win.subplots(figsize=(max(8, len(_words) * 0.92), 2.1))
+    _ax_win.set_xlim(-0.7, len(_words) - 0.3)
+    _ax_win.set_ylim(-0.65, 0.5)
+    _ax_win.axis("off")
+
+    for _i, _wd in enumerate(_words):
+        if _i == _t:
+            _bg, _fc = "#e74c3c", "white"
+        elif abs(_i - _t) <= _k:
+            _bg, _fc = "#27ae60", "white"
+        else:
+            _bg, _fc = "#ecf0f1", "#555"
+        _box = _mp_win.FancyBboxPatch(
+            (_i - 0.42, -0.32), 0.84, 0.64,
+            boxstyle="round,pad=0.04", linewidth=0, facecolor=_bg, zorder=2,
+        )
+        _ax_win.add_patch(_box)
+        _ax_win.text(_i, 0, _wd, ha="center", va="center", fontsize=10, color=_fc, zorder=3)
+
+    # Window bracket
+    _l_br = max(0, _t - _k)
+    _r_br = min(len(_words) - 1, _t + _k)
+    _ax_win.annotate(
+        "", xy=(_r_br + 0.48, -0.48), xytext=(_l_br - 0.48, -0.48),
+        arrowprops=dict(arrowstyle="<->", color="#555", lw=1.5),
+    )
+    _ax_win.text(
+        (_l_br + _r_br) / 2, -0.60,
+        f"window  k = {_k}", ha="center", va="top", fontsize=9, color="#555",
+    )
+    _plt_win.tight_layout()
+    _buf_win = _io_win.BytesIO()
+    _fig_win.savefig(_buf_win, format="png", dpi=110, bbox_inches="tight", facecolor="white")
+    _plt_win.close(_fig_win)
+
+    _pos_txt = "\n\n".join(
+        f"✅ (**{a}**, **{b}**) — positions {_t} & {ci}" for a, b, ci in _pos_pairs_win
+    ) or "*No context words in window.*"
+    _neg_txt = "\n\n".join(
+        f"❌ (**{a}**, **{b}**) — random sample" for a, b, _ in _neg_pairs_win
+    ) or "*No outside words to sample.*"
+
+    mo.vstack([
+        mo.md("## Interactive: Sliding Window → Training Pairs"),
+        mo.md(
+            "Move the sliders to explore how a co-occurrence window generates pairs from raw text.  \n"
+            "🔴 **Red** = target word · 🟢 **Green** = context window (positive) · ⬜ **Grey** = outside (negative pool)"
+        ),
+        mo.hstack([_sent_dd, _ws_sl, _tgt_sl], gap=1.5, align="end"),
+        mo.image(_buf_win.getvalue(), width=720),
+        mo.hstack([
+            mo.callout(mo.md(f"**Positive pairs**\n\n{_pos_txt}"), kind="success"),
+            mo.callout(mo.md(f"**Negative pairs** *(sampled)*\n\n{_neg_txt}"), kind="danger"),
+        ], gap=1),
+    ], gap=1)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ---
+
+    ## Step 5 — Mathematical Summary
+
+    | Symbol | Meaning |
+    |--------|---------|
+    | $V$ | vocabulary size |
+    | $\mathbf{x}_i \in \{0,1\}^V$ | one-hot vector for word $i$ |
+    | $W \in \mathbb{R}^{V \times K}$ | embedding matrix (one row per word) |
+    | $\mathbf{e}_i = \text{row}_i(W) \in \mathbb{R}^K$ | embedding of word $i$ |
+
+    ### Update rule for pair $(i,\, j)$
+
+    Compute $\boldsymbol{\delta} = \mathbf{e}_j - \mathbf{e}_i$ from **original** values, then:
+
+    | Signal | Update |
+    |--------|--------|
+    | Positive (closer) | $\mathbf{e}_i \mathrel{+}= \eta\boldsymbol{\delta}$ ; $\mathbf{e}_j \mathrel{-}= \eta\boldsymbol{\delta}$ |
+    | Negative (farther) | $\mathbf{e}_i \mathrel{-}= \eta\boldsymbol{\delta}$ ; $\mathbf{e}_j \mathrel{+}= \eta\boldsymbol{\delta}$ |
+
+    Both moves preserve the midpoint $(\mathbf{e}_i + \mathbf{e}_j)/2$.
+    **Closer** shrinks the gap; **Farther** stretches it.
+
+    ### Scaling to real corpora: word2vec
+
+    In **word2vec** (skip-gram with negative sampling, Mikolov et al. 2013), the same
+    idea is applied to billions of $(target, context)$ pairs from raw text.
+    Each word gets a 300-dimensional vector. After training on a large corpus:
+
+    $$\mathbf{e}_{\text{king}} - \mathbf{e}_{\text{man}} + \mathbf{e}_{\text{woman}}
+    \approx \mathbf{e}_{\text{queen}}$$
+
+    Geometry encodes meaning — entirely from co-occurrence statistics, with no human labels.
+    """)
     return
 
 
