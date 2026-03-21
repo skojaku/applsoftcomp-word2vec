@@ -239,7 +239,7 @@ def _(
         ys = [h[1] * 100.0 for h in hist]
 
         _fig, _ax = _plt_acc.subplots(figsize=(6.4, 3.4))
-        _ax.plot(xs, ys, marker="o", color="#1976d2", label="Accuracy (train = eval)")
+        _ax.plot(xs, ys, marker="o", color="#1f77b4", label="Accuracy (train = eval)")
         _ax.axhline(50.0, color="#9e9e9e", linestyle="--", linewidth=1.5, label="50% baseline")
         _ax.set_xlabel("Training click (each Add or Subtract)")
         _ax.set_ylabel("Accuracy (%)")
@@ -266,7 +266,7 @@ def _(
                 mo.md("## Accuracy vs training clicks *(same images as training — demo only)*"),
                 mo.callout(
                     mo.md(f"**Current accuracy:** **{current_acc * 100:.1f}%**"),
-                    kind="success" if current_acc >= 0.55 else "info",
+                    kind="info" if current_acc >= 0.55 else "neutral",
                 ),
                 _acc_fig_widget,
             ]
@@ -522,9 +522,9 @@ def _(mo):
 
     # Hand-crafted 1-D positions that show overlap
     _CAT_1D = {
-        "animal":  (["cat",   "dog",  "bird"],  [-0.75, -0.20,  0.50], "#e67e22"),
-        "action":  (["run",   "jump", "walk"],  [-0.45,  0.30,  0.65], "#27ae60"),
-        "emotion": (["happy", "sad",  "calm"],  [ 0.10, -0.40,  0.40], "#e74c3c"),
+        "animal":  (["cat",   "dog",  "bird"],  [-0.75, -0.20,  0.50], "#1f77b4"),
+        "action":  (["run",   "jump", "walk"],  [-0.45,  0.30,  0.65], "#ff7f0e"),
+        "emotion": (["happy", "sad",  "calm"],  [ 0.10, -0.40,  0.40], "#9467bd"),
     }
     # Ideal 2-D positions (manually separated clusters)
     _POS_2D = {
@@ -642,9 +642,9 @@ def _():
         "emotion": ["happy", "sad", "angry", "calm", "joyful"],
     }
     CATEGORY_COLORS = {
-        "animal":  "#e67e22",
-        "action":  "#27ae60",
-        "emotion": "#e74c3c",
+        "animal":  "#1f77b4",
+        "action":  "#ff7f0e",
+        "emotion": "#9467bd",
     }
 
     # Positive pairs: within each category
@@ -850,15 +850,25 @@ def _(
         text=[_pair_a, _pair_b],
     ))
 
-    # Fixed symmetric range centred at 0; grows with data but never smaller than ±0.8.
-    # Explicit range prevents Plotly from auto-rescaling on every re-render.
+    # Viewport centred on actual data bounding box, with 30% margin.
     import numpy as _np_emb_ui
-    _span = float(max(_np_emb_ui.abs(_e).max() * 1.3, 0.8))
+    _xc = float((_e[:, 0].min() + _e[:, 0].max()) / 2)
+    _yc = float((_e[:, 1].min() + _e[:, 1].max()) / 2)
+    _half = float(max(
+        (_e[:, 0].max() - _e[:, 0].min()) / 2,
+        (_e[:, 1].max() - _e[:, 1].min()) / 2,
+        0.3,
+    )) * 1.3
 
     _fig_emb = _go.Figure(data=_traces)
     _fig_emb.update_layout(
-        xaxis=dict(title="Dimension 1", range=[-_span, _span]),
-        yaxis=dict(title="Dimension 2", range=[-_span, _span], scaleanchor="x", scaleratio=1),
+        xaxis=dict(title="Dimension 1", range=[_xc - _half, _xc + _half],
+                   showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(title="Dimension 2", range=[_yc - _half, _yc + _half],
+                   scaleanchor="x", scaleratio=1,
+                   showgrid=False, zeroline=False, showticklabels=False),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
         height=480,
         margin=dict(l=40, r=20, t=20, b=40),
         legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="left", x=0),
@@ -909,9 +919,9 @@ def _(emb, emb_accuracy_history, evaluate_pair_accuracy, mo):
         _ay   = [h[1][2] * 100 for h in _hist]
 
         _fig2, _ax2 = _plt_chart.subplots(figsize=(6.4, 3.4))
-        _ax2.plot(_xs, _py, color="#27ae60", marker=".", label="Positive pair acc")
-        _ax2.plot(_xs, _ny, color="#e74c3c", marker=".", label="Negative pair acc")
-        _ax2.plot(_xs, _ay, color="#1976d2", marker=".", label="Overall acc")
+        _ax2.plot(_xs, _py, color="#1f77b4", marker=".", label="Positive pair acc")
+        _ax2.plot(_xs, _ny, color="#d62728", marker=".", label="Negative pair acc")
+        _ax2.plot(_xs, _ay, color="#ff7f0e", marker=".", label="Overall acc")
         _ax2.axhline(50, color="#9e9e9e", linestyle="--", linewidth=1.5, label="50% baseline")
         _ax2.set_xlabel("Training step")
         _ax2.set_ylabel("Accuracy (%)")
@@ -928,7 +938,7 @@ def _(emb, emb_accuracy_history, evaluate_pair_accuracy, mo):
             mo.md("## Pair Accuracy vs Training Steps"),
             mo.callout(
                 mo.md(f"**Current:** pos {_cp*100:.0f}% · neg {_cn*100:.0f}% · overall {_ca*100:.0f}%"),
-                kind="success" if _ca >= 0.55 else "info",
+                kind="info" if _ca >= 0.55 else "neutral",
             ),
             mo.image(_buf2.getvalue(), width=640),
         ])
@@ -1024,9 +1034,9 @@ def _(mo, win_sent_dd, win_tgt_sl, win_ws_sl):
     _ax_win.axis("off")
     for _i, _wd in enumerate(_words):
         if _i == _t:
-            _bg, _fc = "#e74c3c", "white"
+            _bg, _fc = "#d62728", "white"
         elif abs(_i - _t) <= _k:
-            _bg, _fc = "#2980b9", "white"
+            _bg, _fc = "#1f77b4", "white"
         else:
             _bg, _fc = "#ecf0f1", "#555"
         _ax_win.add_patch(_mp_win.FancyBboxPatch(
@@ -1055,12 +1065,12 @@ def _(mo, win_sent_dd, win_tgt_sl, win_ws_sl):
         mo.md("## Interactive: Sliding Window → Training Pairs"),
         mo.md(
             "Move the sliders to explore how a co-occurrence window generates pairs from raw text.  \n"
-            "🔴 **Red** = target word · 🔵 **Blue** = context window (positive) · ⬜ **Grey** = outside (negative pool)"
+            "🔴 **Red** = target word · 🔷 **Blue** = context window (positive) · ⬜ **Grey** = outside (negative pool)"
         ),
         mo.hstack([win_sent_dd, win_ws_sl, win_tgt_sl], gap=1.5, align="end"),
         mo.image(_buf_win.getvalue(), width=720),
         mo.hstack([
-            mo.callout(mo.md(f"**Positive pairs**\n\n{_pos_txt}"), kind="success"),
+            mo.callout(mo.md(f"**Positive pairs**\n\n{_pos_txt}"), kind="info"),
             mo.callout(mo.md(f"**Negative pairs** *(sampled)*\n\n{_neg_txt}"), kind="danger"),
         ], gap=1),
     ], gap=1)
