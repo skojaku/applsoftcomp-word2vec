@@ -1,0 +1,116 @@
+# Notebook Design: Neural Network Training Interactive Tutorial
+
+## Overview
+A marimo notebook teaching how neural networks are trained, using a 2-layer (no hidden layer)
+linear classifier for cat vs dog image classification on CIFAR-10 (32x32x3 images).
+
+## Style Rules (from prompt_engineering.py reference)
+- ALL cells use `@app.cell(hide_code=True)`
+- Markdown cells use `mo.md(r"""...""")`
+- Layout: `mo.vstack([...])`, `mo.hstack([...])`
+- Callouts: `mo.callout(mo.md("..."), kind="info"|"success"|"warn"|"danger")`
+- How-to-run tip at top: `/// tip | How to run this notebook`
+- What-you-learn note at top: `/// note | What you'll learn`
+- Accordion for collapsible content: `mo.accordion({"title": content})`
+- App width: `marimo.App(width="medium")`
+- Script metadata header at very top with dependencies
+
+## File Order in neural_network_notebook.py
+Sections must appear in this exact order:
+1. header          — script metadata + imports cell
+2. ui-title        — title + intro markdown
+3. ui-architecture — architecture explanation
+4. ui-controls     — buttons + current image + prediction
+5. ui-weights      — weight visualization
+6. ui-accuracy     — accuracy progression chart
+7. logic-data      — CIFAR-10 loading (defines data)
+8. logic-classifier — pure functions
+9. logic-state     — marimo state + button handlers
+
+## Variable Interface (exact names required)
+
+### From `header` cell:
+- Returns: `(mo,)`
+
+### From `logic-data` cell:
+- Returns: `(train_images, train_labels, eval_images, eval_labels, CLASS_NAMES)`
+- `train_images`: np.ndarray shape (N, 32, 32, 3), float32, range [0.0, 1.0]
+- `train_labels`: np.ndarray shape (N,), int, 0=cat 1=dog
+- `eval_images`: np.ndarray shape (M, 32, 32, 3), float32, range [0.0, 1.0]
+- `eval_labels`: np.ndarray shape (M,), int, 0=cat 1=dog
+- `CLASS_NAMES`: list = ["Cat", "Dog"]
+- Implementation: download CIFAR-10 via urllib to ~/.cache/cifar10/,
+  use pickle to load data_batch_1, extract classes 3 (cat) and 5 (dog),
+  reshape from (N,3072) CIFAR layout to (N,32,32,3),
+  first 180 samples → train, next 40 samples → eval
+  show mo.callout progress during download
+
+### From `logic-classifier` cell:
+- Returns: `(compute_output, evaluate_accuracy)`
+- `compute_output(weights, image_flat)` → float
+  weights: np.ndarray shape (3072,)
+  image_flat: np.ndarray shape (3072,), already flattened and normalized
+  output: dot product = np.dot(weights, image_flat)
+  interpretation: >0 → dog (class 1), <=0 → cat (class 0)
+- `evaluate_accuracy(weights, images, labels)` → float in [0,1]
+  images shape: (N,32,32,3); internally flattens each image
+  computes fraction of correct predictions
+
+### From `logic-state` cell:
+- Returns: `(weights, set_weights, image_index, set_image_index, click_count, accuracy_history, randomize_btn, add_btn, subtract_btn, next_btn)`
+- `weights`: getter function, weights() returns np.ndarray shape (3072,)
+- `set_weights`: setter function
+- `image_index`: getter function, image_index() returns int
+- `set_image_index`: setter function
+- `click_count`: getter function, click_count() returns int
+- `accuracy_history`: getter function, accuracy_history() returns list of (int, float) tuples (click_num, accuracy)
+- `randomize_btn`: mo.ui.button — resets weights to randn*0.01, resets click_count to 0, accuracy_history to [], image_index to 0
+- `add_btn`: mo.ui.button — adds current image pixels to weights (w += train_images[image_index()].flatten()), increments click_count, evaluates accuracy, appends to accuracy_history, advances image_index
+- `subtract_btn`: mo.ui.button — subtracts current image pixels from weights, increments click_count, evaluates accuracy, appends to accuracy_history, advances image_index
+- `next_btn`: mo.ui.button — only advances image_index (no weight change, no click count)
+- FLAT_SIZE = 32*32*3 = 3072
+- Initial state: weights = np.zeros(3072), image_index = 0, click_count = 0, accuracy_history = []
+- Depends on: mo, train_images, train_labels, eval_images, eval_labels, compute_output, evaluate_accuracy
+
+## Cell Format Template
+```python
+@app.cell(hide_code=True)
+def _(dependency1, dependency2):
+    # code here
+    return (exported_var1, exported_var2)
+```
+
+## UI Layout Design
+- `ui-controls`: left column = current image (32x32 displayed large ~200px), right column = buttons + prediction
+  - Show image with mo.image() or matplotlib figure
+  - Show true label and current prediction with confidence
+  - Button row: [Randomize] [Add (+)] [Subtract (-)] [Next →]
+  - Show "Click #N" counter
+- `ui-weights`: weight heatmap using matplotlib diverging colormap (RdBu_r)
+  - Reshape weights to (32,32,3), also show mean across channels as heatmap
+  - Include explanation: "Bright red = strong dog signal, bright blue = strong cat signal"
+- `ui-accuracy`: line chart, x=click number, y=accuracy (%)
+  - Horizontal dashed line at 50% (random baseline)
+  - Show current accuracy prominently
+  - If no history yet, show placeholder message
+
+## Teaching Narrative
+- Section 1 (title): What we want to do — classify images as cat or dog
+- Section 2 (architecture): How we do it — multiply each pixel by a weight and sum up
+  - Formula: output = w₁·x₁ + w₂·x₂ + ... + w₃₀₇₂·x₃₀₇₂ = w·x
+  - If output > 0 → dog, if output ≤ 0 → cat
+  - The weight vector has the SAME shape as the image
+- Section 3 (interactive): Train by example — show image, decide cat or dog, add or subtract
+  - Add: this image looks like a dog → push weights toward dog
+  - Subtract: this image looks like a cat → push weights away from cat
+  - This IS gradient descent (for a perceptron with no activation)!
+- Accuracy chart: students see learning curve as they click
+
+## Dependencies for script header
+```
+marimo>=0.9.0
+numpy>=1.24
+matplotlib>=3.7
+Pillow>=10.0
+```
+(No torch/tensorflow needed — use pure urllib + pickle for CIFAR-10)
