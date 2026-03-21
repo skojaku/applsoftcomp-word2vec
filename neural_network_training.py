@@ -5,6 +5,7 @@
 #   "numpy>=1.24",
 #   "matplotlib>=3.7",
 #   "Pillow>=10.0",
+#   "plotly>=5.0",
 # ]
 # ///
 
@@ -822,8 +823,7 @@ def _(
     randomize_emb_btn,
     emb_lr_slider,
 ):
-    import io as _io_emb
-    import matplotlib.pyplot as _plt_emb
+    import plotly.graph_objects as _go
 
     _e = emb()
     _pidx = int(emb_pair_idx()) % len(PAIR_QUEUE)
@@ -831,39 +831,46 @@ def _(
     _ia = WORD_INDEX[_pair_a]
     _ib = WORD_INDEX[_pair_b]
 
-    _fig, _ax = _plt_emb.subplots(figsize=(7, 6))
-    for _cat_name, _words in CATEGORIES.items():
+    _traces = []
+    for _cat, _words in CATEGORIES.items():
         _xs = [float(_e[WORD_INDEX[w], 0]) for w in _words]
         _ys = [float(_e[WORD_INDEX[w], 1]) for w in _words]
-        _ax.scatter(_xs, _ys, color=CATEGORY_COLORS[_cat_name], s=90, zorder=3, label=_cat_name)
-        for _w, _x, _y in zip(_words, _xs, _ys):
-            _ax.annotate(_w, (_x, _y), xytext=(6, 4), textcoords="offset points", fontsize=10)
-    # Highlight current pair
-    _ax.scatter(
-        [float(_e[_ia, 0]), float(_e[_ib, 0])],
-        [float(_e[_ia, 1]), float(_e[_ib, 1])],
-        color="orange", s=220, zorder=4, edgecolors="black", linewidths=1.5,
-    )
-    _ax.plot(
-        [float(_e[_ia, 0]), float(_e[_ib, 0])],
-        [float(_e[_ia, 1]), float(_e[_ib, 1])],
-        color="orange", linestyle="--", linewidth=2, zorder=3,
-    )
-    _ax.set_title("Word Embeddings (2D)")
-    _ax.set_xlabel("Dimension 1")
-    _ax.set_ylabel("Dimension 2")
-    _ax.legend(loc="best", fontsize=10)
-    _ax.grid(True, alpha=0.3)
-    _plt_emb.tight_layout()
+        _traces.append(_go.Scatter(
+            x=_xs, y=_ys,
+            mode="markers+text",
+            name=_cat,
+            text=_words,
+            textposition="top right",
+            marker=dict(color=CATEGORY_COLORS[_cat], size=12),
+        ))
 
-    _buf = _io_emb.BytesIO()
-    _fig.savefig(_buf, format="png", dpi=110, bbox_inches="tight", facecolor="white", edgecolor="none")
-    _plt_emb.close(_fig)
+    # Current pair: dashed orange line + large highlighted markers
+    _traces.append(_go.Scatter(
+        x=[float(_e[_ia, 0]), float(_e[_ib, 0])],
+        y=[float(_e[_ia, 1]), float(_e[_ib, 1])],
+        mode="markers+lines",
+        showlegend=False,
+        line=dict(color="orange", dash="dash", width=2),
+        marker=dict(color="orange", size=18, line=dict(color="black", width=2)),
+        hovertemplate="%{text}<extra>current pair</extra>",
+        text=[_pair_a, _pair_b],
+    ))
+
+    _fig_emb = _go.Figure(data=_traces)
+    _fig_emb.update_layout(
+        xaxis_title="Dimension 1",
+        yaxis_title="Dimension 2",
+        height=480,
+        margin=dict(l=40, r=20, t=20, b=40),
+        legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="left", x=0),
+        transition={"duration": 400, "easing": "cubic-in-out"},
+        uirevision="embedding",   # keeps zoom/pan stable across updates
+    )
 
     _ptype = "related ✓ (same category)" if _is_pos else "unrelated ✗ (different category)"
     _pair_md = mo.md(
         f"**Current pair:** *{_pair_a}* & *{_pair_b}* — {_ptype}  \n"
-        f"Click **Closer** to pull them together, **Farther** to push apart, "
+        f"Click **Closer** to pull together, **Farther** to push apart, "
         f"or **Train 20 steps** to run automatically."
     )
     _status = mo.md(
@@ -874,10 +881,7 @@ def _(
         [randomize_emb_btn, closer_btn, farther_btn, auto_train_btn],
         justify="start", gap=1,
     )
-    mo.vstack(
-        [emb_lr_slider, _pair_md, mo.image(_buf.getvalue(), width=640), _btns, _status],
-        gap=1.25,
-    )
+    mo.vstack([emb_lr_slider, _pair_md, _fig_emb, _btns, _status], gap=1.25)
     return
 
 
@@ -986,9 +990,10 @@ def _(mo):
         "a small fish swam slowly under the dark blue water",
     ]
 
+    _sent_opts = {f"[{i+1}]  {s}": s for i, s in enumerate(_SENTS)}
     _sent_dd = mo.ui.dropdown(
-        options={f"[{i+1}]  {s}": s for i, s in enumerate(_SENTS)},
-        value=_SENTS[0],
+        options=_sent_opts,
+        value=next(iter(_sent_opts)),   # first key, not the raw sentence string
         label="Sentence",
     )
     _ws_sl  = mo.ui.slider(start=1, stop=3, step=1, value=2,
