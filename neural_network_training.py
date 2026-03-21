@@ -665,7 +665,10 @@ def _():
         ("cat",  "happy"), ("dog",   "run"),
     ]
 
-    PAIR_QUEUE = [(a, b, True) for a, b in POS_PAIRS] + [(a, b, False) for a, b in NEG_PAIRS]
+    import random as _rng
+    _queue = [(a, b, True) for a, b in POS_PAIRS] + [(a, b, False) for a, b in NEG_PAIRS]
+    _rng.Random(42).shuffle(_queue)
+    PAIR_QUEUE = _queue
     return (
         CATEGORIES,
         CATEGORY_COLORS,
