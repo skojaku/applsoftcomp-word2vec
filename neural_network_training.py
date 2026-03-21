@@ -346,15 +346,6 @@ def _(mo):
         _path_show = str(_base.resolve().relative_to(_Path.cwd().resolve()))
     except ValueError:
         _path_show = str(_base.resolve())
-    mo.callout(
-        mo.md(
-            f"Loaded **{len(train_images)}** faces from `{_path_show}` "
-            f"({_grid}×{_grid} gray, **{_n_w}** weights). "
-            f"*Demo:* training and the accuracy plot use **this same set**. "
-            f"*Sharper grid:* `uv run scripts/prepare_afhq_subset.py --grid 96` then reload."
-        ),
-        kind="success",
-    )
     return CLASS_NAMES, eval_images, eval_labels, train_images, train_labels
 
 
@@ -487,9 +478,6 @@ def _(
         training_mistake_index,
         weights,
     )
-
-
-# ── Part II: Word Embeddings ────────────────────────────────────────────────
 
 
 @app.cell(hide_code=True)
@@ -678,7 +666,6 @@ def _():
     ]
 
     PAIR_QUEUE = [(a, b, True) for a, b in POS_PAIRS] + [(a, b, False) for a, b in NEG_PAIRS]
-
     return (
         CATEGORIES,
         CATEGORY_COLORS,
@@ -691,7 +678,7 @@ def _():
 
 
 @app.cell(hide_code=True)
-def _(WORD_INDEX, POS_PAIRS, NEG_PAIRS):
+def _(NEG_PAIRS, POS_PAIRS, WORD_INDEX):
     import numpy as _np_sim
 
     def compute_similarity(emb, word_a, word_b) -> float:
@@ -711,11 +698,11 @@ def _(WORD_INDEX, POS_PAIRS, NEG_PAIRS):
         overall = (pos_ok + neg_ok) / max(1, len(POS_PAIRS) + len(NEG_PAIRS))
         return pos_acc, neg_acc, overall
 
-    return compute_similarity, evaluate_pair_accuracy
+    return (evaluate_pair_accuracy,)
 
 
 @app.cell(hide_code=True)
-def _(mo, VOCAB, WORD_INDEX, PAIR_QUEUE, evaluate_pair_accuracy):
+def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
     import numpy as _np_emb
 
     _V = len(VOCAB)
@@ -788,12 +775,11 @@ def _(mo, VOCAB, WORD_INDEX, PAIR_QUEUE, evaluate_pair_accuracy):
         set_emb_pair_idx(0)
         set_emb_accuracy_history([])
 
-    closer_btn     = mo.ui.button(label="Closer ↔",         on_click=_on_closer,     kind="success")
+    closer_btn     = mo.ui.button(label="Closer ↔",         on_click=_on_closer,     kind="warn")
     farther_btn    = mo.ui.button(label="Farther ↔",        on_click=_on_farther,    kind="danger")
     auto_train_btn = mo.ui.button(label="Train 20 steps ▶", on_click=_on_auto_train, kind="warn",
                                   tooltip="Run 20 correct updates automatically.")
     randomize_emb_btn = mo.ui.button(label="Randomize", on_click=_on_randomize, kind="neutral")
-
     return (
         auto_train_btn,
         closer_btn,
@@ -809,19 +795,19 @@ def _(mo, VOCAB, WORD_INDEX, PAIR_QUEUE, evaluate_pair_accuracy):
 
 @app.cell(hide_code=True)
 def _(
-    mo,
-    WORD_INDEX,
     CATEGORIES,
     CATEGORY_COLORS,
     PAIR_QUEUE,
+    WORD_INDEX,
+    auto_train_btn,
+    closer_btn,
     emb,
     emb_click_count,
-    emb_pair_idx,
-    closer_btn,
-    farther_btn,
-    auto_train_btn,
-    randomize_emb_btn,
     emb_lr_slider,
+    emb_pair_idx,
+    farther_btn,
+    mo,
+    randomize_emb_btn,
 ):
     import plotly.graph_objects as _go
 
@@ -856,15 +842,19 @@ def _(
         text=[_pair_a, _pair_b],
     ))
 
+    # Fixed symmetric range centred at 0; grows with data but never smaller than ±0.8.
+    # Explicit range prevents Plotly from auto-rescaling on every re-render.
+    import numpy as _np_emb_ui
+    _span = float(max(_np_emb_ui.abs(_e).max() * 1.3, 0.8))
+
     _fig_emb = _go.Figure(data=_traces)
     _fig_emb.update_layout(
-        xaxis_title="Dimension 1",
-        yaxis_title="Dimension 2",
+        xaxis=dict(title="Dimension 1", range=[-_span, _span]),
+        yaxis=dict(title="Dimension 2", range=[-_span, _span], scaleanchor="x", scaleratio=1),
         height=480,
         margin=dict(l=40, r=20, t=20, b=40),
         legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="left", x=0),
         transition={"duration": 400, "easing": "cubic-in-out"},
-        uirevision="embedding",   # keeps zoom/pan stable across updates
     )
 
     _ptype = "related ✓ (same category)" if _is_pos else "unrelated ✗ (different category)"
@@ -886,7 +876,7 @@ def _(
 
 
 @app.cell(hide_code=True)
-def _(mo, emb_accuracy_history, emb, evaluate_pair_accuracy):
+def _(emb, emb_accuracy_history, evaluate_pair_accuracy, mo):
     import io as _io_chart
     import matplotlib.pyplot as _plt_chart
 
@@ -939,9 +929,6 @@ def _(mo, emb_accuracy_history, emb, evaluate_pair_accuracy):
     return
 
 
-# ── Step 4: Self-supervised training via co-occurrence windows ───────────────
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -978,33 +965,37 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    import io as _io_win
-    import matplotlib.pyplot as _plt_win
-    import matplotlib.patches as _mp_win
-    import random as _rnd_win
-
+    # Cell A: create widgets and return them so downstream cell can read .value
     _SENTS = [
         "the cat chased the mouse near the big old tree",
         "the dog ran quickly across the green park today",
         "she felt happy and very calm after the long walk",
         "a small fish swam slowly under the dark blue water",
     ]
-
     _sent_opts = {f"[{i+1}]  {s}": s for i, s in enumerate(_SENTS)}
-    _sent_dd = mo.ui.dropdown(
+    win_sent_dd = mo.ui.dropdown(
         options=_sent_opts,
-        value=next(iter(_sent_opts)),   # first key, not the raw sentence string
+        value=next(iter(_sent_opts)),
         label="Sentence",
     )
-    _ws_sl  = mo.ui.slider(start=1, stop=3, step=1, value=2,
-                           label="Window size  k", show_value=True)
-    _tgt_sl = mo.ui.slider(start=0, stop=9, step=1, value=1,
-                           label="Target word (index)", show_value=True)
+    win_ws_sl  = mo.ui.slider(start=1, stop=3, step=1, value=2,
+                              label="Window size  k", show_value=True)
+    win_tgt_sl = mo.ui.slider(start=0, stop=9, step=1, value=1,
+                              label="Target word (index)", show_value=True)
+    return win_sent_dd, win_tgt_sl, win_ws_sl
 
-    # ── reactive computation ──
-    _words = _sent_dd.value.split()
-    _k     = int(_ws_sl.value)
-    _t     = min(int(_tgt_sl.value), len(_words) - 1)
+
+@app.cell(hide_code=True)
+def _(mo, win_sent_dd, win_tgt_sl, win_ws_sl):
+    # Cell B: access .value in a downstream cell — marimo allows this
+    import io as _io_win
+    import matplotlib.pyplot as _plt_win
+    import matplotlib.patches as _mp_win
+    import random as _rnd_win
+
+    _words = win_sent_dd.value.split()
+    _k     = int(win_ws_sl.value)
+    _t     = min(int(win_tgt_sl.value), len(_words) - 1)
 
     _pos_pairs_win = []
     for _off in range(1, _k + 1):
@@ -1018,12 +1009,11 @@ def _(mo):
     _neg_idx_win = _rnd_win.sample(_outside_idx, min(3, len(_outside_idx)))
     _neg_pairs_win = [(_words[_t], _words[i], i) for i in sorted(_neg_idx_win)]
 
-    # ── sentence visualisation ──
+    # Sentence visualisation
     _fig_win, _ax_win = _plt_win.subplots(figsize=(max(8, len(_words) * 0.92), 2.1))
     _ax_win.set_xlim(-0.7, len(_words) - 0.3)
     _ax_win.set_ylim(-0.65, 0.5)
     _ax_win.axis("off")
-
     for _i, _wd in enumerate(_words):
         if _i == _t:
             _bg, _fc = "#e74c3c", "white"
@@ -1031,24 +1021,16 @@ def _(mo):
             _bg, _fc = "#27ae60", "white"
         else:
             _bg, _fc = "#ecf0f1", "#555"
-        _box = _mp_win.FancyBboxPatch(
+        _ax_win.add_patch(_mp_win.FancyBboxPatch(
             (_i - 0.42, -0.32), 0.84, 0.64,
             boxstyle="round,pad=0.04", linewidth=0, facecolor=_bg, zorder=2,
-        )
-        _ax_win.add_patch(_box)
+        ))
         _ax_win.text(_i, 0, _wd, ha="center", va="center", fontsize=10, color=_fc, zorder=3)
-
-    # Window bracket
-    _l_br = max(0, _t - _k)
-    _r_br = min(len(_words) - 1, _t + _k)
-    _ax_win.annotate(
-        "", xy=(_r_br + 0.48, -0.48), xytext=(_l_br - 0.48, -0.48),
-        arrowprops=dict(arrowstyle="<->", color="#555", lw=1.5),
-    )
-    _ax_win.text(
-        (_l_br + _r_br) / 2, -0.60,
-        f"window  k = {_k}", ha="center", va="top", fontsize=9, color="#555",
-    )
+    _l_br, _r_br = max(0, _t - _k), min(len(_words) - 1, _t + _k)
+    _ax_win.annotate("", xy=(_r_br + 0.48, -0.48), xytext=(_l_br - 0.48, -0.48),
+                     arrowprops=dict(arrowstyle="<->", color="#555", lw=1.5))
+    _ax_win.text((_l_br + _r_br) / 2, -0.60, f"window  k = {_k}",
+                 ha="center", va="top", fontsize=9, color="#555")
     _plt_win.tight_layout()
     _buf_win = _io_win.BytesIO()
     _fig_win.savefig(_buf_win, format="png", dpi=110, bbox_inches="tight", facecolor="white")
@@ -1067,7 +1049,7 @@ def _(mo):
             "Move the sliders to explore how a co-occurrence window generates pairs from raw text.  \n"
             "🔴 **Red** = target word · 🟢 **Green** = context window (positive) · ⬜ **Grey** = outside (negative pool)"
         ),
-        mo.hstack([_sent_dd, _ws_sl, _tgt_sl], gap=1.5, align="end"),
+        mo.hstack([win_sent_dd, win_ws_sl, win_tgt_sl], gap=1.5, align="end"),
         mo.image(_buf_win.getvalue(), width=720),
         mo.hstack([
             mo.callout(mo.md(f"**Positive pairs**\n\n{_pos_txt}"), kind="success"),
