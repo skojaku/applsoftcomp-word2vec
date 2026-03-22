@@ -772,12 +772,10 @@ def _(NEG_PAIRS, POS_PAIRS, WORD_INDEX):
 @app.cell(hide_code=True)
 def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
     import numpy as _np_emb
-    import threading as _threading
 
     _V = len(VOCAB)
 
     emb, set_emb = mo.state(_np_emb.random.randn(_V, 2).astype(_np_emb.float32) * 0.1)
-    emb_before, set_emb_before = mo.state(None)       # embedding snapshot before last click
     prev_pair_indices, set_prev_pair_indices = mo.state(None)  # (ia, ib) of last trained pair
     emb_click_count, set_emb_click_count = mo.state(0)
     emb_pair_idx, set_emb_pair_idx = mo.state(0)
@@ -821,20 +819,16 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
         _wa, _wb, _ = PAIR_QUEUE[_pi]
         _ia, _ib = WORD_INDEX[_wa], WORD_INDEX[_wb]
         _e_curr = emb()
-        # Snapshot before update — display uses this to keep rings at old positions
-        set_emb_before(_e_curr.copy())
+        # Remember which pair was just trained (shown at medium opacity after advance)
         set_prev_pair_indices((_ia, _ib))
-        # Move points immediately
         _ne = _step(_e_curr, _pi_raw, _eta, is_closer)
         set_emb(_ne)
         _c = int(emb_click_count()) + 1
         set_emb_click_count(_c)
+        set_emb_pair_idx(_pi_raw + 1)
         _hist = list(emb_accuracy_history())
         _hist.append((_c, evaluate_pair_accuracy(_ne)))
         set_emb_accuracy_history(_hist)
-        # Advance pair index after 1 s — rings "stay" on old pair during the wait
-        _next = _pi_raw + 1
-        _threading.Timer(1.0, lambda: set_emb_pair_idx(_next)).start()
 
 
     def _on_closer(_v=None):
@@ -867,7 +861,6 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
 
     def _on_randomize(_v=None):
         set_emb(_np_emb.random.randn(_V, 2).astype(_np_emb.float32) * 0.1)
-        set_emb_before(None)
         set_prev_pair_indices(None)
         set_emb_click_count(0)
         set_emb_pair_idx(0)
@@ -887,7 +880,6 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
         auto_train_btn,
         closer_btn,
         emb,
-        emb_before,
         emb_click_count,
         emb_lr_slider,
         emb_pair_idx,
@@ -906,7 +898,6 @@ def _(
     auto_train_btn,
     closer_btn,
     emb,
-    emb_before,
     emb_click_count,
     emb_lr_slider,
     emb_pair_idx,
@@ -930,13 +921,22 @@ def _(
     _ring_y = [float(_e[_ia, 1]), float(_e[_ib, 1])]
 
     _focused = {_ia, _ib}
+    _prev = prev_pair_indices()
+    _prev_set = set(_prev) if _prev is not None else set()
     _traces = []
     for _cat, _words in CATEGORIES.items():
         _xs = [float(_e[WORD_INDEX[w], 0]) for w in _words]
         _ys = [float(_e[WORD_INDEX[w], 1]) for w in _words]
-        _ops = [1.0 if WORD_INDEX[w] in _focused else 0.18 for w in _words]
+        _ops = [
+            1.0 if WORD_INDEX[w] in _focused
+            else 0.6 if WORD_INDEX[w] in _prev_set
+            else 0.15
+            for w in _words
+        ]
         _tcols = [
-            CATEGORY_COLORS[_cat] if WORD_INDEX[w] in _focused else "rgba(120,120,120,0.35)"
+            CATEGORY_COLORS[_cat] if WORD_INDEX[w] in _focused
+            else CATEGORY_COLORS[_cat] if WORD_INDEX[w] in _prev_set
+            else "rgba(120,120,120,0.3)"
             for w in _words
         ]
         _traces.append(
