@@ -56,23 +56,23 @@ h2, h3 {
  * Scoped to <button> so callouts / charts are unaffected.
  */
 button {
-  /* warn → blue */
-  --yellow-9:  #228be6 !important;
-  --yellow-10: #1971c2 !important;
-  --yellow-11: #1864ab !important;
-  --yellow-12: #ffffff !important;
+  /* warn → blue: light bg, dark text */
+  --yellow-9:  #a5d8ff !important;  /* bg  */
+  --yellow-10: #4dabf7 !important;  /* hover bg */
+  --yellow-11: #228be6 !important;  /* border */
+  --yellow-12: #1864ab !important;  /* text */
 
-  /* danger → red */
-  --red-9:  #e03131 !important;
-  --red-10: #c92a2a !important;
-  --red-11: #b02525 !important;
-  --red-1:  #fff5f5 !important;
+  /* danger → red: light bg, dark text */
+  --red-9:  #ffc9c9 !important;     /* bg */
+  --red-10: #ff8787 !important;     /* hover bg */
+  --red-11: #fa5252 !important;     /* border */
+  --red-1:  #c92a2a !important;     /* text */
 
-  /* success → teal */
-  --grass-9:  #15aabf !important;
-  --grass-10: #0c8599 !important;
-  --grass-11: #0b7285 !important;
-  --grass-1:  #e3fafc !important;
+  /* success → teal: light bg, dark text */
+  --grass-9:  #99e9f2 !important;   /* bg */
+  --grass-10: #3bc9db !important;   /* hover bg */
+  --grass-11: #15aabf !important;   /* border */
+  --grass-1:  #0b7285 !important;   /* text */
 
   font-weight: 500 !important;
   font-family: var(--marimo-text-font) !important;
