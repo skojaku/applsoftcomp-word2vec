@@ -49,7 +49,7 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # Training a tiny neural network: cat vs dog **faces** (AFHQ)
+    ## Part I: Training a tiny neural network: cat vs dog **faces** (AFHQ)
     """)
     return
 
@@ -70,11 +70,11 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## What we want to do
+    ### What we want to do
 
     We will run a toy Rosenblatt's neural network that classifies an image into a cat or dog face.
 
-    ## How we do it
+    ### How we do it
 
     The images are **grayscale**, represented as a marix of pixel values. For each pixel, we multiply a weight, one weight per pixel. We then compute the output by summing up the weighted pixel values:
 
@@ -86,7 +86,7 @@ def _(mo):
 
     We consider that an image is a dog if output>0, otherwise cat.
 
-    ## Training
+    ### Training
 
     We want to find the weights \(\mathbf{w}\) that correctly classify all training images. We will do this by looking at the first training image that the model gets wrong, then clicking **Add** or **Subtract** to fix it.
 
@@ -95,18 +95,23 @@ def _(mo):
     \[
 
     w \leftarrow w \pm \eta x
+
     \]
 
     where $\eta$ is the learning rate, controlling the update size. $\pm$ depends on whether the misclassification is made for a dog face (should be +) or a cat face (should be -).
 
-    ## Try yourself
+    ### Try yourself
 
     Let's learn how it works. We will give you misclassified images. You click whether to add to or subtract the pixel values from the weights. Click *Add (+)* if a dog face is misclassified. Click *Subtract* if a cat face.
 
-    **Data:** faces are from **[AFHQ](https://github.com/clovaai/stargan-v2)** (prepared via
-    [Hugging Face `huggan/AFHQ`](https://huggingface.co/datasets/huggan/AFHQ)). A helper script resizes to
+    /// Admonition | Data
+
+    Faces are from **[AFHQ](https://github.com/clovaai/stargan-v2)** (prepared via
+    [Hugging Face `huggan/AFHQ`](https://huggingface.co/datasets/huggan/AFHQ)). A helper script (./scripts/prepare_afhq_subset.py) resizes to
     a square grid (default **\(64\times64\)**), converts to **grayscale**, and saves **PNG files** under
-    `data/afhq_catdog/` that this notebook loads directly — no dataset download when you open Marimo.
+    `data/afhq_catdog/` that this notebook loads directly.
+
+    ///
     """)
     return
 
@@ -156,7 +161,7 @@ def _(
 
         _fig_pair, (_ax_im, _ax_wm) = _plt_ctrl.subplots(1, 2, figsize=(_FIG_W, _FIG_W * 0.42))
         _ax_im.imshow(_np.clip(img, 0.0, 1.0), cmap="gray", vmin=0.0, vmax=1.0, interpolation="nearest")
-        _ax_im.set_title("Face (first mistake in train order)")
+        _ax_im.set_title("Face")
         _ax_im.axis("off")
         _wm = _ax_wm.imshow(W_mat, cmap="RdBu_r", vmin=-_lim_side, vmax=_lim_side, interpolation="nearest")
         _ax_wm.set_title("Weights W")
@@ -455,19 +460,20 @@ def _(
         include_input=True,
         full_width=True,
     )
-    randomize_btn = mo.ui.button(label="Randomize", on_click=on_randomize, kind="neutral")
+    _s_primary = {"background-color": "#5b82a6", "color": "white", "border": "none", "border-radius": "4px", "padding": "6px 16px"}
+    _s_danger  = {"background-color": "#a05555", "color": "white", "border": "none", "border-radius": "4px", "padding": "6px 16px"}
+    _s_neutral = {"background-color": "#7a7a7a", "color": "white", "border": "none", "border-radius": "4px", "padding": "6px 16px"}
+    randomize_btn = mo.ui.button(label="Randomize", on_click=on_randomize).style(_s_neutral)
     add_btn = mo.ui.button(
         label="Add (+)",
         on_click=on_add,
-        kind="warn",
         tooltip="w ← w + η·x on the first misclassified training face (in order).",
-    )
+    ).style(_s_primary)
     subtract_btn = mo.ui.button(
         label="Subtract (−) cat",
         on_click=on_subtract,
-        kind="danger",
         tooltip="w ← w − η·x when that face is truly cat; no-op if dog or no mistake.",
-    )
+    ).style(_s_danger)
     return (
         accuracy_history,
         add_btn,
@@ -485,32 +491,35 @@ def _(mo):
     mo.md(r"""
     ---
 
-    # Part II — From Pixels to Words: Word Embeddings
+    ## Part II — From Pixels to Words: Word Embeddings
 
-    ## Step 1 — One-hot encoding: words as vectors
+    ### One-hot encoding: words as vectors
 
-    Images are natural vectors (pixel grids). Words aren't. We need to convert them.
+    The idea of Rosenblatt's neural networks can be extended to natural language processing. To simplify the story, let's focus on a unit of language, i.e., *words*.
 
-    The standard trick: **one-hot encoding**. For a vocabulary of $V$ words, assign word $i$
-    the binary vector $\mathbf{x}_i \in \{0,1\}^V$ — all zeros except a single 1 at
-    position $i$.
+    Words are not numerical unlike images. But we can assign a numerical ID to each number. For example, word "cat" has ID 0, and word "cat" has ID 1. For a vocabulary of $V$ words, these IDs can be equivalently expressed as *one-hot vector*  $\mathbf{x}_i \in \{0,1\}^V$ with all entries being zeros except a single 1 at the position of the ID.
 
-    $$\text{cat} \to [1,0,0,\ldots,0], \quad
-      \text{dog} \to [0,1,0,\ldots,0], \quad
-      \text{bird} \to [0,0,1,\ldots,0], \quad \ldots$$
+    \[
+    \text{cat} \to [1,0,0,\ldots,0], \\
+    \text{dog} \to [0,1,0,\ldots,0],  \\
+    \text{bird} \to [0,0,1,\ldots,0], \\
+    \vdots
+    \]
 
-    Now plug this into the perceptron from Part I:
+    Now plug this into the perceptron from Part I. Let's think about the case of word "dog".
 
-    $$\text{output} = \mathbf{w}^\top \mathbf{x}_i = w_i$$
 
-    The dot product simply **selects the $i$-th weight**. So the weight $w_i$ is the
-    model's score for word $i$.
+    $$
+    \text{output} = \underbrace{[w_0, w_1, \ldots, w_V]}_{\text{\normalsize weights}} \cdot \underbrace{[0, 1, 0, \ldots, 0]}_{\text{\normalsize dog vector}} = w_1
+    $$
 
-    **Sentiment example:** train on positive/negative sentences and the model learns
-    $w_\text{happy} > 0$, $w_\text{sad} < 0$. Output $> 0$ ↦ positive sentiment.
+    The dot product simply selects the 2nd weight. So the weight $w_2$ is the score for word "dog". The same applies to other words, i.e., the dot product with the one-hot vector for the $i$th word simply selects the $i$th weight as that word's score.
 
-    > **But there's a problem.** Every word gets just *one number*. What happens when
-    > we need more than two semantic groups?
+    Goemetrically, the neural network maps words into a single horizontal line. This could be useful for representing a spectrum of sentiments of words (e.g., "happy" vs "unhappy").
+
+    ### Multiple output neurons
+
+    A single score can represent a spectrum of bipolar concepts. But it fails when there are more than two groups. A solution is to create another output neuron to represent a word as a vector, instead of a single scalar. The vectors are called *word embeddings*.
     """)
     return
 
@@ -522,15 +531,21 @@ def _(mo):
 
     # Hand-crafted 1-D positions that show overlap
     _CAT_1D = {
-        "animal":  (["cat",   "dog",  "bird"],  [-0.75, -0.20,  0.50], "#1f77b4"),
-        "action":  (["run",   "jump", "walk"],  [-0.45,  0.30,  0.65], "#ff7f0e"),
-        "emotion": (["happy", "sad",  "calm"],  [ 0.10, -0.40,  0.40], "#9467bd"),
+        "animal": (["cat", "dog", "bird"], [-0.75, -0.20, 0.50], "#1f77b4"),
+        "action": (["run", "jump", "walk"], [-0.45, 0.30, 0.65], "#ff7f0e"),
+        "emotion": (["happy", "sad", "calm"], [0.10, -0.40, 0.40], "#9467bd"),
     }
     # Ideal 2-D positions (manually separated clusters)
     _POS_2D = {
-        "cat":   (-1.2, -0.9), "dog": (-0.9, -0.5), "bird": (-1.1, -0.2),
-        "run":   ( 0.9, -0.8), "jump": (1.1, -0.3), "walk": ( 0.7, -0.6),
-        "happy": (-0.1,  1.1), "sad":  (0.4,  0.8), "calm": (-0.4,  0.9),
+        "cat": (-1.2, -0.9),
+        "dog": (-0.9, -0.5),
+        "bird": (-1.1, -0.2),
+        "run": (0.9, -0.8),
+        "jump": (1.1, -0.3),
+        "walk": (0.7, -0.6),
+        "happy": (-0.1, 1.1),
+        "sad": (0.4, 0.8),
+        "calm": (-0.4, 0.9),
     }
 
     _fig1d, (_ax1, _ax2) = _plt_1d.subplots(1, 2, figsize=(11, 3.2))
@@ -539,14 +554,13 @@ def _(mo):
     for _cat, (_words, _xs, _col) in _CAT_1D.items():
         _ax1.scatter(_xs, [0] * 3, color=_col, s=130, zorder=3, label=_cat)
         for _w, _x in zip(_words, _xs):
-            _ax1.annotate(_w, (_x, 0), xytext=(0, 12), textcoords="offset points",
-                          ha="center", fontsize=9)
+            _ax1.annotate(_w, (_x, 0), xytext=(0, 12), textcoords="offset points", ha="center", fontsize=9)
     _ax1.axhline(0, color="#aaa", linewidth=1.5)
     _ax1.set_xlim(-1.3, 1.1)
     _ax1.set_ylim(-0.3, 0.35)
     _ax1.set_yticks([])
     _ax1.set_xlabel("Single score  $w_i$", fontsize=11)
-    _ax1.set_title("1 output neuron → number line\n(3 groups can't be separated cleanly)", fontsize=11)
+    _ax1.set_title("1 output neuron.\n(3 groups can't be separated cleanly)", fontsize=11)
     _ax1.legend(loc="lower right", fontsize=9)
 
     # Right: ideal 2-D clusters
@@ -558,7 +572,7 @@ def _(mo):
             _ax2.annotate(_w, _POS_2D[_w], xytext=(6, 4), textcoords="offset points", fontsize=9)
     _ax2.set_xlabel("Dimension 1", fontsize=11)
     _ax2.set_ylabel("Dimension 2", fontsize=11)
-    _ax2.set_title("2 output neurons → 2-D plane\n(clusters emerge!)", fontsize=11)
+    _ax2.set_title("2 output neurons. 2-D plane\n(clusters emerge!)", fontsize=11)
     _ax2.legend(loc="upper right", fontsize=9)
     _ax2.grid(True, alpha=0.3)
 
@@ -567,61 +581,63 @@ def _(mo):
     _fig1d.savefig(_buf_1d, format="png", dpi=110, bbox_inches="tight", facecolor="white")
     _plt_1d.close(_fig1d)
 
-    mo.vstack([
-        mo.md("## Step 2 — Why More Than One Output Neuron?"),
-        mo.md(
-            "With **one output**, every word collapses to a single number on a line. "
-            "A line can be cut at most **once** — separating two groups. "
-            "For **three or more semantic categories**, some groups will always overlap.\n\n"
-            "Adding a **second output neuron** gives each word **2-D coordinates** — a point in a plane. "
-            "Now three (or more) clusters can occupy different regions of the space."
-        ),
-        mo.image(_buf_1d.getvalue(), width=740),
-        mo.callout(
-            mo.md(
-                "**Key idea:** with $K$ output neurons, each word gets a $K$-dimensional vector "
-                "— its **embedding** $\\mathbf{e}_i \\in \\mathbb{R}^K$. "
-                "We use $K = 2$ here so we can draw the space directly. "
-                "Real models use $K = 100$–$300$."
-            ),
-            kind="info",
-        ),
-    ], gap=1)
+    mo.vstack(
+        [
+            mo.image(_buf_1d.getvalue(), width=740),
+        ],
+        gap=1,
+    )
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Step 3 — Training the Embeddings with Word Pairs
+    The weight is now a matrix $\textbf{W} \in \mathbb{R}^{2 \times V}$, not a vector, i.e.,
 
-    The weight matrix is now $W \in \mathbb{R}^{V \times 2}$. For word $i$:
+    \[
+    \textbf{W} =
+    \begin{bmatrix}
+    w_{0,1} & w_{0,2} & w_{0,3} & \ldots & w_{0,V} \\
+    w_{1,1} & w_{1,2} & w_{1,3} & \ldots & w_{1,V}
+    \end{bmatrix}
+    \]
 
-    $$\mathbf{e}_i = W^\top \mathbf{x}_i = \text{row}_i(W) \in \mathbb{R}^2$$
+    For word "dog" (ID: 1):
 
-    We train by showing the model **pairs** of words and clicking whether they should be
-    **closer** or **farther** in the embedding space.
+    \[
+    \begin{align}
+    \text{output} &= \begin{bmatrix}
+    w_{0,0} & w_{0,1} & w_{0,2} & \ldots & w_{0,V} \\
+    w_{1,0} & w_{1,1} & w_{1,2} & \ldots & w_{1,V}
+    \end{bmatrix}
+    \cdot
+    \begin{bmatrix}
+    0 \\
+    1 \\
+    0 \\
+    \vdots
+    \end{bmatrix}
+    \\
+    &=\begin{bmatrix}
+    w_{0,1} \\
+    w_{1,1}
+    \end{bmatrix}.
+    \end{align}
+    \]
 
-    The update uses $\boldsymbol{\delta} = \mathbf{e}_j - \mathbf{e}_i$ computed from
-    the **original** values before any update:
+    As is the case for the 1d case, the one-hot vector *selects* a column of $\textbf{W}$. A dog is represented as 2d vector. In general, we can extend to $K$ output neurons to get $K$-dimensional embeddings. Here, we focus on $K=2$ to simplify the story.
 
-    | Click | Update |
-    |-------|--------|
-    | **Closer** | $\mathbf{e}_i \mathrel{+}= \eta\,\boldsymbol{\delta}$ ; $\mathbf{e}_j \mathrel{-}= \eta\,\boldsymbol{\delta}$ |
-    | **Farther** | $\mathbf{e}_i \mathrel{-}= \eta\,\boldsymbol{\delta}$ ; $\mathbf{e}_j \mathrel{+}= \eta\,\boldsymbol{\delta}$ |
+    ### Training
 
-    **Closer** moves both toward their midpoint. **Farther** pushes them apart.
+    How can we learn the word embeddings? A simple idea is to present two words to the model and tell it whether they are related in some sense or not. We then updates the weights such that the related words are closer and unrelated words are farther.
 
-    ---
+    Below are **15 words** in three groups, i.e.,  animals, actions, emotions (5 each).
+    The embeddings start *random*. Your goal is to train until each group forms its own cluster.
 
-    ### Try it: three semantic clusters
-
-    Below are **15 words** in three groups — animals, actions, emotions (5 each).
-    The embeddings start **random**. Your goal: train until each group forms its own cluster.
-
-    - Click **Closer ↔** or **Farther ↔** to update one pair at a time.
-    - Click **Train 20 steps ▶** to run 20 correct updates automatically and watch the clusters form.
-    - Click **Randomize** to reset and start fresh.
+    - Click *Closer ↔* or *Farther ↔* to update one pair at a time.
+    - Click *Train 50 steps ▶* to run 50 correct updates automatically and watch the clusters form.
+    - Click *Randomize* to reset and start fresh.
     """)
     return
 
@@ -630,42 +646,71 @@ def _(mo):
 def _():
     # Three clean semantic clusters (5 words each = 15 total)
     VOCAB = [
-        "cat", "dog", "bird", "fish", "horse",
-        "run", "walk", "jump", "swim", "fly",
-        "happy", "sad", "angry", "calm", "joyful",
+        "cat",
+        "dog",
+        "bird",
+        "fish",
+        "horse",
+        "run",
+        "walk",
+        "jump",
+        "swim",
+        "fly",
+        "happy",
+        "sad",
+        "angry",
+        "calm",
+        "joyful",
     ]
     WORD_INDEX = {w: i for i, w in enumerate(VOCAB)}
 
     CATEGORIES = {
-        "animal":  ["cat", "dog", "bird", "fish", "horse"],
-        "action":  ["run", "walk", "jump", "swim", "fly"],
+        "animal": ["cat", "dog", "bird", "fish", "horse"],
+        "action": ["run", "walk", "jump", "swim", "fly"],
         "emotion": ["happy", "sad", "angry", "calm", "joyful"],
     }
     CATEGORY_COLORS = {
-        "animal":  "#1f77b4",
-        "action":  "#ff7f0e",
+        "animal": "#1f77b4",
+        "action": "#ff7f0e",
         "emotion": "#9467bd",
     }
 
     # Positive pairs: within each category
     POS_PAIRS = [
-        ("cat",   "dog"),   ("cat",   "bird"),  ("dog",   "fish"),
-        ("fish",  "horse"), ("bird",  "horse"),
-        ("run",   "walk"),  ("run",   "jump"),  ("walk",  "swim"),
-        ("jump",  "fly"),   ("swim",  "fly"),
-        ("happy", "calm"),  ("happy", "joyful"), ("sad",  "angry"),
-        ("calm",  "sad"),   ("joyful","angry"),
+        ("cat", "dog"),
+        ("cat", "bird"),
+        ("dog", "fish"),
+        ("fish", "horse"),
+        ("bird", "horse"),
+        ("run", "walk"),
+        ("run", "jump"),
+        ("walk", "swim"),
+        ("jump", "fly"),
+        ("swim", "fly"),
+        ("happy", "calm"),
+        ("happy", "joyful"),
+        ("sad", "angry"),
+        ("calm", "sad"),
+        ("joyful", "angry"),
     ]
     # Negative pairs: across categories
     NEG_PAIRS = [
-        ("cat",  "run"),   ("dog",   "happy"), ("bird",  "sad"),
-        ("fish", "jump"),  ("horse", "calm"),
-        ("run",  "happy"), ("walk",  "sad"),   ("jump",  "angry"),
-        ("swim", "joyful"),("fly",   "calm"),
-        ("cat",  "happy"), ("dog",   "run"),
+        ("cat", "run"),
+        ("dog", "happy"),
+        ("bird", "sad"),
+        ("fish", "jump"),
+        ("horse", "calm"),
+        ("run", "happy"),
+        ("walk", "sad"),
+        ("jump", "angry"),
+        ("swim", "joyful"),
+        ("fly", "calm"),
+        ("cat", "happy"),
+        ("dog", "run"),
     ]
 
     import random as _rng
+
     _queue = [(a, b, True) for a, b in POS_PAIRS] + [(a, b, False) for a, b in NEG_PAIRS]
     _rng.Random(42).shuffle(_queue)
     PAIR_QUEUE = _queue
@@ -684,6 +729,7 @@ def _():
 def _(NEG_PAIRS, POS_PAIRS, WORD_INDEX):
     import numpy as _np_sim
 
+
     def compute_similarity(emb, word_a, word_b) -> float:
         ea = emb[WORD_INDEX[word_a]].astype(_np_sim.float64)
         eb = emb[WORD_INDEX[word_b]].astype(_np_sim.float64)
@@ -692,6 +738,7 @@ def _(NEG_PAIRS, POS_PAIRS, WORD_INDEX):
         if na < 1e-12 or nb < 1e-12:
             return 0.0
         return float(_np_sim.dot(ea, eb) / (na * nb))
+
 
     def evaluate_pair_accuracy(emb):
         pos_ok = sum(1 for a, b in POS_PAIRS if compute_similarity(emb, a, b) > 0)
@@ -704,7 +751,7 @@ def _(NEG_PAIRS, POS_PAIRS, WORD_INDEX):
     return (evaluate_pair_accuracy,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
     import numpy as _np_emb
 
@@ -717,9 +764,16 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
 
     # Slider defined before callbacks so closures can reference it
     emb_lr_slider = mo.ui.slider(
-        start=0.05, stop=0.5, step=0.05, value=0.1,
-        label="Learning rate η", show_value=True, include_input=True, full_width=True,
+        start=0.05,
+        stop=0.5,
+        step=0.05,
+        value=0.1,
+        label="Learning rate η",
+        show_value=True,
+        include_input=True,
+        full_width=True,
     )
+
 
     def _step(e, pi_raw, eta, is_closer):
         """Apply one update step; returns updated embedding array."""
@@ -738,6 +792,7 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
             _ne[_ib] = (_eb + eta * _d).astype(_np_emb.float32)
         return _ne
 
+
     def _apply(is_closer):
         _eta = float(emb_lr_slider.value)
         _pi_raw = int(emb_pair_idx())
@@ -750,8 +805,14 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
         _hist.append((_c, evaluate_pair_accuracy(_ne)))
         set_emb_accuracy_history(_hist)
 
-    def _on_closer(_v=None):    _apply(True)
-    def _on_farther(_v=None):   _apply(False)
+
+    def _on_closer(_v=None):
+        _apply(True)
+
+
+    def _on_farther(_v=None):
+        _apply(False)
+
 
     def _on_auto_train(_v=None):
         """Run 20 steps automatically, always choosing the correct direction."""
@@ -760,7 +821,7 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
         _pi_raw = int(emb_pair_idx())
         _c = int(emb_click_count())
         _hist = list(emb_accuracy_history())
-        for _ in range(20):
+        for _ in range(50):
             _pi = _pi_raw % len(PAIR_QUEUE)
             _, _, _is_pos = PAIR_QUEUE[_pi]
             _e = _step(_e, _pi_raw, _eta, _is_pos)
@@ -772,17 +833,25 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
         set_emb_pair_idx(_pi_raw)
         set_emb_accuracy_history(_hist)
 
+
     def _on_randomize(_v=None):
         set_emb(_np_emb.random.randn(_V, 2).astype(_np_emb.float32) * 0.1)
         set_emb_click_count(0)
         set_emb_pair_idx(0)
         set_emb_accuracy_history([])
 
-    closer_btn     = mo.ui.button(label="Closer ↔",         on_click=_on_closer,     kind="warn")
-    farther_btn    = mo.ui.button(label="Farther ↔",        on_click=_on_farther,    kind="danger")
-    auto_train_btn = mo.ui.button(label="Train 20 steps ▶", on_click=_on_auto_train, kind="warn",
-                                  tooltip="Run 20 correct updates automatically.")
-    randomize_emb_btn = mo.ui.button(label="Randomize", on_click=_on_randomize, kind="neutral")
+
+    _s_primary = {"background-color": "#5b82a6", "color": "white", "border": "none", "border-radius": "4px", "padding": "6px 16px"}
+    _s_danger  = {"background-color": "#a05555", "color": "white", "border": "none", "border-radius": "4px", "padding": "6px 16px"}
+    _s_neutral = {"background-color": "#7a7a7a", "color": "white", "border": "none", "border-radius": "4px", "padding": "6px 16px"}
+    closer_btn = mo.ui.button(label="Closer ↔", on_click=_on_closer).style(_s_primary)
+    farther_btn = mo.ui.button(label="Farther ↔", on_click=_on_farther).style(_s_danger)
+    auto_train_btn = mo.ui.button(
+        label="Train 50 steps",
+        on_click=_on_auto_train,
+        tooltip="Run 50 correct updates automatically.",
+    ).style(_s_neutral)
+    randomize_emb_btn = mo.ui.button(label="Randomize", on_click=_on_randomize).style(_s_neutral)
     return (
         auto_train_btn,
         closer_btn,
@@ -824,52 +893,71 @@ def _(
     for _cat, _words in CATEGORIES.items():
         _xs = [float(_e[WORD_INDEX[w], 0]) for w in _words]
         _ys = [float(_e[WORD_INDEX[w], 1]) for w in _words]
-        _traces.append(_go.Scatter(
-            x=_xs, y=_ys,
-            mode="markers+text",
-            name=_cat,
-            text=_words,
-            textposition="top right",
-            marker=dict(color=CATEGORY_COLORS[_cat], size=12),
-        ))
+        _traces.append(
+            _go.Scatter(
+                x=_xs,
+                y=_ys,
+                mode="markers+text",
+                name=_cat,
+                text=_words,
+                textposition="top right",
+                marker=dict(color=CATEGORY_COLORS[_cat], size=12),
+            )
+        )
 
     # Current pair: dashed grey line connecting the two words
-    _traces.append(_go.Scatter(
-        x=[float(_e[_ia, 0]), float(_e[_ib, 0])],
-        y=[float(_e[_ia, 1]), float(_e[_ib, 1])],
-        mode="lines",
-        showlegend=False,
-        line=dict(color="#555", dash="dash", width=1.5),
-    ))
+    _traces.append(
+        _go.Scatter(
+            x=[float(_e[_ia, 0]), float(_e[_ib, 0])],
+            y=[float(_e[_ia, 1]), float(_e[_ib, 1])],
+            mode="lines",
+            showlegend=False,
+            line=dict(color="#555", dash="dash", width=1.5),
+        )
+    )
     # Ring highlights on the two current-pair dots (keep their category colour)
-    _traces.append(_go.Scatter(
-        x=[float(_e[_ia, 0]), float(_e[_ib, 0])],
-        y=[float(_e[_ia, 1]), float(_e[_ib, 1])],
-        mode="markers",
-        showlegend=False,
-        marker=dict(color="rgba(0,0,0,0)", size=22,
-                    line=dict(color="#333", width=2.5)),
-        hovertemplate="%{text}<extra>current pair</extra>",
-        text=[_pair_a, _pair_b],
-    ))
+    _traces.append(
+        _go.Scatter(
+            x=[float(_e[_ia, 0]), float(_e[_ib, 0])],
+            y=[float(_e[_ia, 1]), float(_e[_ib, 1])],
+            mode="markers",
+            showlegend=False,
+            marker=dict(color="rgba(0,0,0,0)", size=22, line=dict(color="#333", width=2.5)),
+            hovertemplate="%{text}<extra>current pair</extra>",
+            text=[_pair_a, _pair_b],
+        )
+    )
 
     # Viewport centred on actual data bounding box, with 30% margin.
     import numpy as _np_emb_ui
+
     _xc = float((_e[:, 0].min() + _e[:, 0].max()) / 2)
     _yc = float((_e[:, 1].min() + _e[:, 1].max()) / 2)
-    _half = float(max(
-        (_e[:, 0].max() - _e[:, 0].min()) / 2,
-        (_e[:, 1].max() - _e[:, 1].min()) / 2,
-        0.3,
-    )) * 1.3
+    _half = (
+        float(
+            max(
+                (_e[:, 0].max() - _e[:, 0].min()) / 2,
+                (_e[:, 1].max() - _e[:, 1].min()) / 2,
+                0.3,
+            )
+        )
+        * 1.3
+    )
 
     _fig_emb = _go.Figure(data=_traces)
     _fig_emb.update_layout(
-        xaxis=dict(title="Dimension 1", range=[_xc - _half, _xc + _half],
-                   showgrid=False, zeroline=False, showticklabels=False),
-        yaxis=dict(title="Dimension 2", range=[_yc - _half, _yc + _half],
-                   scaleanchor="x", scaleratio=1,
-                   showgrid=False, zeroline=False, showticklabels=False),
+        xaxis=dict(
+            title="Dimension 1", range=[_xc - _half, _xc + _half], showgrid=False, zeroline=False, showticklabels=False
+        ),
+        yaxis=dict(
+            title="Dimension 2",
+            range=[_yc - _half, _yc + _half],
+            scaleanchor="x",
+            scaleratio=1,
+            showgrid=False,
+            zeroline=False,
+            showticklabels=False,
+        ),
         plot_bgcolor="white",
         paper_bgcolor="white",
         height=480,
@@ -890,7 +978,8 @@ def _(
     )
     _btns = mo.hstack(
         [randomize_emb_btn, closer_btn, farther_btn, auto_train_btn],
-        justify="start", gap=1,
+        justify="start",
+        gap=1,
     )
     mo.vstack([emb_lr_slider, _pair_md, _fig_emb, _btns, _status], gap=1.25)
     return
@@ -905,21 +994,23 @@ def _(emb, emb_accuracy_history, evaluate_pair_accuracy, mo):
     _cp, _cn, _ca = evaluate_pair_accuracy(emb())
 
     if not _hist:
-        _chart_panel = mo.vstack([
-            mo.md("## Pair Accuracy vs Training Steps"),
-            mo.callout(
-                mo.md(
-                    f"**Current:** pos {_cp*100:.0f}% · neg {_cn*100:.0f}% · overall {_ca*100:.0f}%  \n"
-                    "*Click any training button to start the accuracy chart.*"
+        _chart_panel = mo.vstack(
+            [
+                mo.md("## Pair Accuracy vs Training Steps"),
+                mo.callout(
+                    mo.md(
+                        f"**Current:** pos {_cp * 100:.0f}% · neg {_cn * 100:.0f}% · overall {_ca * 100:.0f}%  \n"
+                        "*Click any training button to start the accuracy chart.*"
+                    ),
+                    kind="neutral",
                 ),
-                kind="neutral",
-            ),
-        ])
+            ]
+        )
     else:
-        _xs   = [h[0] for h in _hist]
-        _py   = [h[1][0] * 100 for h in _hist]
-        _ny   = [h[1][1] * 100 for h in _hist]
-        _ay   = [h[1][2] * 100 for h in _hist]
+        _xs = [h[0] for h in _hist]
+        _py = [h[1][0] * 100 for h in _hist]
+        _ny = [h[1][1] * 100 for h in _hist]
+        _ay = [h[1][2] * 100 for h in _hist]
 
         _fig2, _ax2 = _plt_chart.subplots(figsize=(6.4, 3.4))
         _ax2.plot(_xs, _py, color="#1f77b4", marker=".", label="Positive pair acc")
@@ -937,14 +1028,16 @@ def _(emb, emb_accuracy_history, evaluate_pair_accuracy, mo):
         _buf2 = _io_chart.BytesIO()
         _fig2.savefig(_buf2, format="png", dpi=110, bbox_inches="tight", facecolor="white", edgecolor="none")
         _plt_chart.close(_fig2)
-        _chart_panel = mo.vstack([
-            mo.md("## Pair Accuracy vs Training Steps"),
-            mo.callout(
-                mo.md(f"**Current:** pos {_cp*100:.0f}% · neg {_cn*100:.0f}% · overall {_ca*100:.0f}%"),
-                kind="info" if _ca >= 0.55 else "neutral",
-            ),
-            mo.image(_buf2.getvalue(), width=640),
-        ])
+        _chart_panel = mo.vstack(
+            [
+                mo.md("## Pair Accuracy vs Training Steps"),
+                mo.callout(
+                    mo.md(f"**Current:** pos {_cp * 100:.0f}% · neg {_cn * 100:.0f}% · overall {_ca * 100:.0f}%"),
+                    kind="info" if _ca >= 0.55 else "neutral",
+                ),
+                mo.image(_buf2.getvalue(), width=640),
+            ]
+        )
 
     _chart_panel
     return
@@ -993,16 +1086,14 @@ def _(mo):
         "she felt happy and very calm after the long walk",
         "a small fish swam slowly under the dark blue water",
     ]
-    _sent_opts = {f"[{i+1}]  {s}": s for i, s in enumerate(_SENTS)}
+    _sent_opts = {f"[{i + 1}]  {s}": s for i, s in enumerate(_SENTS)}
     win_sent_dd = mo.ui.dropdown(
         options=_sent_opts,
         value=next(iter(_sent_opts)),
         label="Sentence",
     )
-    win_ws_sl  = mo.ui.slider(start=1, stop=3, step=1, value=2,
-                              label="Window size  k", show_value=True)
-    win_tgt_sl = mo.ui.slider(start=0, stop=9, step=1, value=1,
-                              label="Target word (index)", show_value=True)
+    win_ws_sl = mo.ui.slider(start=1, stop=3, step=1, value=2, label="Window size  k", show_value=True)
+    win_tgt_sl = mo.ui.slider(start=0, stop=9, step=1, value=1, label="Target word (index)", show_value=True)
     return win_sent_dd, win_tgt_sl, win_ws_sl
 
 
@@ -1015,8 +1106,8 @@ def _(mo, win_sent_dd, win_tgt_sl, win_ws_sl):
     import random as _rnd_win
 
     _words = win_sent_dd.value.split()
-    _k     = int(win_ws_sl.value)
-    _t     = min(int(win_tgt_sl.value), len(_words) - 1)
+    _k = int(win_ws_sl.value)
+    _t = min(int(win_tgt_sl.value), len(_words) - 1)
 
     _pos_pairs_win = []
     for _off in range(1, _k + 1):
@@ -1042,41 +1133,56 @@ def _(mo, win_sent_dd, win_tgt_sl, win_ws_sl):
             _bg, _fc = "#1f77b4", "white"
         else:
             _bg, _fc = "#ecf0f1", "#555"
-        _ax_win.add_patch(_mp_win.FancyBboxPatch(
-            (_i - 0.42, -0.32), 0.84, 0.64,
-            boxstyle="round,pad=0.04", linewidth=0, facecolor=_bg, zorder=2,
-        ))
+        _ax_win.add_patch(
+            _mp_win.FancyBboxPatch(
+                (_i - 0.42, -0.32),
+                0.84,
+                0.64,
+                boxstyle="round,pad=0.04",
+                linewidth=0,
+                facecolor=_bg,
+                zorder=2,
+            )
+        )
         _ax_win.text(_i, 0, _wd, ha="center", va="center", fontsize=10, color=_fc, zorder=3)
     _l_br, _r_br = max(0, _t - _k), min(len(_words) - 1, _t + _k)
-    _ax_win.annotate("", xy=(_r_br + 0.48, -0.48), xytext=(_l_br - 0.48, -0.48),
-                     arrowprops=dict(arrowstyle="<->", color="#555", lw=1.5))
-    _ax_win.text((_l_br + _r_br) / 2, -0.60, f"window  k = {_k}",
-                 ha="center", va="top", fontsize=9, color="#555")
+    _ax_win.annotate(
+        "", xy=(_r_br + 0.48, -0.48), xytext=(_l_br - 0.48, -0.48), arrowprops=dict(arrowstyle="<->", color="#555", lw=1.5)
+    )
+    _ax_win.text((_l_br + _r_br) / 2, -0.60, f"window  k = {_k}", ha="center", va="top", fontsize=9, color="#555")
     _plt_win.tight_layout()
     _buf_win = _io_win.BytesIO()
     _fig_win.savefig(_buf_win, format="png", dpi=110, bbox_inches="tight", facecolor="white")
     _plt_win.close(_fig_win)
 
-    _pos_txt = "\n\n".join(
-        f"✅ (**{a}**, **{b}**) — positions {_t} & {ci}" for a, b, ci in _pos_pairs_win
-    ) or "*No context words in window.*"
-    _neg_txt = "\n\n".join(
-        f"❌ (**{a}**, **{b}**) — random sample" for a, b, _ in _neg_pairs_win
-    ) or "*No outside words to sample.*"
+    _pos_txt = (
+        "\n\n".join(f"✅ (**{a}**, **{b}**) — positions {_t} & {ci}" for a, b, ci in _pos_pairs_win)
+        or "*No context words in window.*"
+    )
+    _neg_txt = (
+        "\n\n".join(f"❌ (**{a}**, **{b}**) — random sample" for a, b, _ in _neg_pairs_win)
+        or "*No outside words to sample.*"
+    )
 
-    mo.vstack([
-        mo.md("## Interactive: Sliding Window → Training Pairs"),
-        mo.md(
-            "Move the sliders to explore how a co-occurrence window generates pairs from raw text.  \n"
-            "🔴 **Red** = target word · 🔷 **Blue** = context window (positive) · ⬜ **Grey** = outside (negative pool)"
-        ),
-        mo.hstack([win_sent_dd, win_ws_sl, win_tgt_sl], gap=1.5, align="end"),
-        mo.image(_buf_win.getvalue(), width=720),
-        mo.hstack([
-            mo.callout(mo.md(f"**Positive pairs**\n\n{_pos_txt}"), kind="info"),
-            mo.callout(mo.md(f"**Negative pairs** *(sampled)*\n\n{_neg_txt}"), kind="danger"),
-        ], gap=1),
-    ], gap=1)
+    mo.vstack(
+        [
+            mo.md("## Interactive: Sliding Window → Training Pairs"),
+            mo.md(
+                "Move the sliders to explore how a co-occurrence window generates pairs from raw text.  \n"
+                "🔴 **Red** = target word · 🔷 **Blue** = context window (positive) · ⬜ **Grey** = outside (negative pool)"
+            ),
+            mo.hstack([win_sent_dd, win_ws_sl, win_tgt_sl], gap=1.5, align="end"),
+            mo.image(_buf_win.getvalue(), width=720),
+            mo.hstack(
+                [
+                    mo.callout(mo.md(f"**Positive pairs**\n\n{_pos_txt}"), kind="info"),
+                    mo.callout(mo.md(f"**Negative pairs** *(sampled)*\n\n{_neg_txt}"), kind="danger"),
+                ],
+                gap=1,
+            ),
+        ],
+        gap=1,
+    )
     return
 
 
