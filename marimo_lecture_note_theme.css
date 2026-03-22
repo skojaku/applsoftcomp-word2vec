@@ -28,7 +28,7 @@
    override that inner element directly. Inline math (.katex not inside
    .katex-display) is left at the default size. */
 .katex-display .katex {
-  font-size: 180% !important;
+  font-size: 260% !important;
 }
 
 .katex-display {
