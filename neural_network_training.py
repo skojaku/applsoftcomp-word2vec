@@ -142,7 +142,9 @@ def _(
     _eta = float(lr_slider.value)
 
     if mist_idx is None:
-        compare_widget = mo.md("*No figure — all training faces are classified correctly.*")
+        compare_widget = mo.md(
+            "*No figure — all training faces are classified correctly.*"
+        )
         status_line = (
             f"**All training images correct.** 100% on this demo set. "
             f"Learning rate **η = {_eta:g}** · training clicks **{int(click_count())}** — try **Randomize** to practice again."
@@ -159,11 +161,25 @@ def _(
         W_mat = _w.reshape(_ih, _iw)
         _lim_side = float(_np.max(_np.abs(W_mat))) + 1e-9
 
-        _fig_pair, (_ax_im, _ax_wm) = _plt_ctrl.subplots(1, 2, figsize=(_FIG_W, _FIG_W * 0.42))
-        _ax_im.imshow(_np.clip(img, 0.0, 1.0), cmap="gray", vmin=0.0, vmax=1.0, interpolation="nearest")
+        _fig_pair, (_ax_im, _ax_wm) = _plt_ctrl.subplots(
+            1, 2, figsize=(_FIG_W, _FIG_W * 0.42)
+        )
+        _ax_im.imshow(
+            _np.clip(img, 0.0, 1.0),
+            cmap="gray",
+            vmin=0.0,
+            vmax=1.0,
+            interpolation="nearest",
+        )
         _ax_im.set_title("Face")
         _ax_im.axis("off")
-        _wm = _ax_wm.imshow(W_mat, cmap="RdBu_r", vmin=-_lim_side, vmax=_lim_side, interpolation="nearest")
+        _wm = _ax_wm.imshow(
+            W_mat,
+            cmap="RdBu_r",
+            vmin=-_lim_side,
+            vmax=_lim_side,
+            interpolation="nearest",
+        )
         _ax_wm.set_title("Weights W")
         _ax_wm.axis("off")
         _fig_pair.colorbar(_wm, ax=_ax_wm, fraction=0.046, pad=0.06)
@@ -229,7 +245,9 @@ def _(
     if not hist:
         _acc_panel = mo.vstack(
             [
-                mo.md("## Accuracy vs training clicks *(same images as training — demo only)*"),
+                mo.md(
+                    "## Accuracy vs training clicks *(same images as training — demo only)*"
+                ),
                 mo.callout(
                     mo.md(
                         f"**Current accuracy:** **{current_acc * 100:.1f}%**  \n"
@@ -245,7 +263,9 @@ def _(
 
         _fig, _ax = _plt_acc.subplots(figsize=(6.4, 3.4))
         _ax.plot(xs, ys, marker="o", color="#1f77b4", label="Accuracy (train = eval)")
-        _ax.axhline(50.0, color="#9e9e9e", linestyle="--", linewidth=1.5, label="50% baseline")
+        _ax.axhline(
+            50.0, color="#9e9e9e", linestyle="--", linewidth=1.5, label="50% baseline"
+        )
         _ax.set_xlabel("Training click (each Add or Subtract)")
         _ax.set_ylabel("Accuracy (%)")
         _ax.set_title("Accuracy on demo set (same as training)")
@@ -268,7 +288,9 @@ def _(
 
         _acc_panel = mo.vstack(
             [
-                mo.md("## Accuracy vs training clicks *(same images as training — demo only)*"),
+                mo.md(
+                    "## Accuracy vs training clicks *(same images as training — demo only)*"
+                ),
                 mo.callout(
                     mo.md(f"**Current accuracy:** **{current_acc * 100:.1f}%**"),
                     kind="info" if current_acc >= 0.55 else "neutral",
@@ -314,13 +336,14 @@ def _(mo):
             ),
             kind="danger",
         )
-        raise FileNotFoundError("data/afhq_catdog/manifest.json not found (run scripts/prepare_afhq_subset.py)")
+        raise FileNotFoundError(
+            "data/afhq_catdog/manifest.json not found (run scripts/prepare_afhq_subset.py)"
+        )
 
     _base = _manifest_path.parent
     _man = _json.loads(_manifest_path.read_text(encoding="utf-8"))
     _grid = int(_man["grid_size"])
     CLASS_NAMES = list(_man.get("class_names", ["Cat", "Dog"]))
-
 
     def _load_split(entries: list) -> tuple[_np.ndarray, _np.ndarray]:
         _imgs = []
@@ -329,13 +352,14 @@ def _(mo):
             _p = _base / str(_e["file"])
             if not _p.is_file():
                 raise FileNotFoundError(f"Missing image file: {_p}")
-            _arr = _np.asarray(_PilImage.open(_p).convert("L"), dtype=_np.float32) / 255.0
+            _arr = (
+                _np.asarray(_PilImage.open(_p).convert("L"), dtype=_np.float32) / 255.0
+            )
             _imgs.append(_arr)
             _labs.append(int(_e["label"]))
         _x = _np.stack(_imgs, axis=0)
         _y = _np.array(_labs, dtype=_np.int64)
         return _x, _y
-
 
     train_images, train_labels = _load_split(_man["train"])
     # Demo: measure accuracy on the same faces as training (no holdout split in the notebook).
@@ -358,10 +382,8 @@ def _(mo):
 def _():
     import numpy as _np
 
-
     def compute_output(weights, image_flat) -> float:
         return float(_np.dot(weights, image_flat))
-
 
     def evaluate_accuracy(weights, images, labels) -> float:
         w = _np.asarray(weights, dtype=_np.float64).reshape(-1)
@@ -390,7 +412,6 @@ def _(
     click_count, set_click_count = mo.state(0)
     accuracy_history, set_accuracy_history = mo.state([])
 
-
     def training_mistake_index(w_vec) -> int | None:
         _w64 = _np.asarray(w_vec, dtype=_np.float64).reshape(-1)
         for _i in range(int(train_images.shape[0])):
@@ -401,12 +422,10 @@ def _(
                 return int(_i)
         return None
 
-
     def on_randomize(_value=None) -> None:
         set_weights((_np.random.randn(FLAT_SIZE).astype(_np.float32) * 0.01))
         set_click_count(0)
         set_accuracy_history([])
-
 
     def on_add(_value=None) -> None:
         _eta = float(lr_slider.value)
@@ -426,7 +445,6 @@ def _(
         hist = list(accuracy_history())
         hist.append((c, acc))
         set_accuracy_history(hist)
-
 
     def on_subtract(_value=None) -> None:
         _eta = float(lr_slider.value)
@@ -449,7 +467,6 @@ def _(
         hist.append((c, acc))
         set_accuracy_history(hist)
 
-
     lr_slider = mo.ui.slider(
         start=0.05,
         stop=2.5,
@@ -460,10 +477,30 @@ def _(
         include_input=True,
         full_width=True,
     )
-    _s_primary = {"background-color": "#5b82a6", "color": "white", "border": "none", "border-radius": "4px", "padding": "6px 16px"}
-    _s_danger  = {"background-color": "#a05555", "color": "white", "border": "none", "border-radius": "4px", "padding": "6px 16px"}
-    _s_neutral = {"background-color": "#7a7a7a", "color": "white", "border": "none", "border-radius": "4px", "padding": "6px 16px"}
-    randomize_btn = mo.ui.button(label="Randomize", on_click=on_randomize).style(_s_neutral)
+    _s_primary = {
+        "background-color": "#5b82a6",
+        "color": "white",
+        "border": "none",
+        "border-radius": "4px",
+        "padding": "6px 16px",
+    }
+    _s_danger = {
+        "background-color": "#a05555",
+        "color": "white",
+        "border": "none",
+        "border-radius": "4px",
+        "padding": "6px 16px",
+    }
+    _s_neutral = {
+        "background-color": "#7a7a7a",
+        "color": "white",
+        "border": "none",
+        "border-radius": "4px",
+        "padding": "6px 16px",
+    }
+    randomize_btn = mo.ui.button(label="Randomize", on_click=on_randomize).style(
+        _s_neutral
+    )
     add_btn = mo.ui.button(
         label="Add (+)",
         on_click=on_add,
@@ -554,13 +591,22 @@ def _(mo):
     for _cat, (_words, _xs, _col) in _CAT_1D.items():
         _ax1.scatter(_xs, [0] * 3, color=_col, s=130, zorder=3, label=_cat)
         for _w, _x in zip(_words, _xs):
-            _ax1.annotate(_w, (_x, 0), xytext=(0, 12), textcoords="offset points", ha="center", fontsize=9)
+            _ax1.annotate(
+                _w,
+                (_x, 0),
+                xytext=(0, 12),
+                textcoords="offset points",
+                ha="center",
+                fontsize=9,
+            )
     _ax1.axhline(0, color="#aaa", linewidth=1.5)
     _ax1.set_xlim(-1.3, 1.1)
     _ax1.set_ylim(-0.3, 0.35)
     _ax1.set_yticks([])
     _ax1.set_xlabel("Single score  $w_i$", fontsize=11)
-    _ax1.set_title("1 output neuron.\n(3 groups can't be separated cleanly)", fontsize=11)
+    _ax1.set_title(
+        "1 output neuron.\n(3 groups can't be separated cleanly)", fontsize=11
+    )
     _ax1.legend(loc="lower right", fontsize=9)
 
     # Right: ideal 2-D clusters
@@ -569,7 +615,9 @@ def _(mo):
         _ys2 = [_POS_2D[_w][1] for _w in _words]
         _ax2.scatter(_xs2, _ys2, color=_col, s=130, zorder=3, label=_cat)
         for _w in _words:
-            _ax2.annotate(_w, _POS_2D[_w], xytext=(6, 4), textcoords="offset points", fontsize=9)
+            _ax2.annotate(
+                _w, _POS_2D[_w], xytext=(6, 4), textcoords="offset points", fontsize=9
+            )
     _ax2.set_xlabel("Dimension 1", fontsize=11)
     _ax2.set_ylabel("Dimension 2", fontsize=11)
     _ax2.set_title("2 output neurons. 2-D plane\n(clusters emerge!)", fontsize=11)
@@ -578,7 +626,9 @@ def _(mo):
 
     _plt_1d.tight_layout()
     _buf_1d = _io_1d.BytesIO()
-    _fig1d.savefig(_buf_1d, format="png", dpi=110, bbox_inches="tight", facecolor="white")
+    _fig1d.savefig(
+        _buf_1d, format="png", dpi=110, bbox_inches="tight", facecolor="white"
+    )
     _plt_1d.close(_fig1d)
 
     mo.vstack(
@@ -711,7 +761,9 @@ def _():
 
     import random as _rng
 
-    _queue = [(a, b, True) for a, b in POS_PAIRS] + [(a, b, False) for a, b in NEG_PAIRS]
+    _queue = [(a, b, True) for a, b in POS_PAIRS] + [
+        (a, b, False) for a, b in NEG_PAIRS
+    ]
     _rng.Random(42).shuffle(_queue)
     PAIR_QUEUE = _queue
     return (
@@ -729,7 +781,6 @@ def _():
 def _(NEG_PAIRS, POS_PAIRS, WORD_INDEX):
     import numpy as _np_sim
 
-
     def compute_similarity(emb, word_a, word_b) -> float:
         ea = emb[WORD_INDEX[word_a]].astype(_np_sim.float64)
         eb = emb[WORD_INDEX[word_b]].astype(_np_sim.float64)
@@ -738,7 +789,6 @@ def _(NEG_PAIRS, POS_PAIRS, WORD_INDEX):
         if na < 1e-12 or nb < 1e-12:
             return 0.0
         return float(_np_sim.dot(ea, eb) / (na * nb))
-
 
     def evaluate_pair_accuracy(emb):
         pos_ok = sum(1 for a, b in POS_PAIRS if compute_similarity(emb, a, b) > 0)
@@ -774,7 +824,6 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
         full_width=True,
     )
 
-
     def _step(e, pi_raw, eta, is_closer):
         """Apply one update step; returns updated embedding array."""
         _pi = pi_raw % len(PAIR_QUEUE)
@@ -792,7 +841,6 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
             _ne[_ib] = (_eb + eta * _d).astype(_np_emb.float32)
         return _ne
 
-
     def _apply(is_closer):
         _eta = float(emb_lr_slider.value)
         _pi_raw = int(emb_pair_idx())
@@ -805,14 +853,11 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
         _hist.append((_c, evaluate_pair_accuracy(_ne)))
         set_emb_accuracy_history(_hist)
 
-
     def _on_closer(_v=None):
         _apply(True)
 
-
     def _on_farther(_v=None):
         _apply(False)
-
 
     def _on_auto_train(_v=None):
         """Run 20 steps automatically, always choosing the correct direction."""
@@ -833,17 +878,33 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
         set_emb_pair_idx(_pi_raw)
         set_emb_accuracy_history(_hist)
 
-
     def _on_randomize(_v=None):
         set_emb(_np_emb.random.randn(_V, 2).astype(_np_emb.float32) * 0.1)
         set_emb_click_count(0)
         set_emb_pair_idx(0)
         set_emb_accuracy_history([])
 
-
-    _s_primary = {"background-color": "#5b82a6", "color": "white", "border": "none", "border-radius": "4px", "padding": "6px 16px"}
-    _s_danger  = {"background-color": "#a05555", "color": "white", "border": "none", "border-radius": "4px", "padding": "6px 16px"}
-    _s_neutral = {"background-color": "#7a7a7a", "color": "white", "border": "none", "border-radius": "4px", "padding": "6px 16px"}
+    _s_primary = {
+        "background-color": "#5b82a6",
+        "color": "white",
+        "border": "none",
+        "border-radius": "4px",
+        "padding": "6px 16px",
+    }
+    _s_danger = {
+        "background-color": "#a05555",
+        "color": "white",
+        "border": "none",
+        "border-radius": "4px",
+        "padding": "6px 16px",
+    }
+    _s_neutral = {
+        "background-color": "#7a7a7a",
+        "color": "white",
+        "border": "none",
+        "border-radius": "4px",
+        "padding": "6px 16px",
+    }
     closer_btn = mo.ui.button(label="Closer ↔", on_click=_on_closer).style(_s_primary)
     farther_btn = mo.ui.button(label="Farther ↔", on_click=_on_farther).style(_s_danger)
     auto_train_btn = mo.ui.button(
@@ -851,7 +912,9 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
         on_click=_on_auto_train,
         tooltip="Run 50 correct updates automatically.",
     ).style(_s_neutral)
-    randomize_emb_btn = mo.ui.button(label="Randomize", on_click=_on_randomize).style(_s_neutral)
+    randomize_emb_btn = mo.ui.button(label="Randomize", on_click=_on_randomize).style(
+        _s_neutral
+    )
     return (
         auto_train_btn,
         closer_btn,
@@ -922,7 +985,9 @@ def _(
             y=[float(_e[_ia, 1]), float(_e[_ib, 1])],
             mode="markers",
             showlegend=False,
-            marker=dict(color="rgba(0,0,0,0)", size=22, line=dict(color="#333", width=2.5)),
+            marker=dict(
+                color="rgba(0,0,0,0)", size=22, line=dict(color="#333", width=2.5)
+            ),
             hovertemplate="%{text}<extra>current pair</extra>",
             text=[_pair_a, _pair_b],
         )
@@ -947,7 +1012,11 @@ def _(
     _fig_emb = _go.Figure(data=_traces)
     _fig_emb.update_layout(
         xaxis=dict(
-            title="Dimension 1", range=[_xc - _half, _xc + _half], showgrid=False, zeroline=False, showticklabels=False
+            title="Dimension 1",
+            range=[_xc - _half, _xc + _half],
+            showgrid=False,
+            zeroline=False,
+            showticklabels=False,
         ),
         yaxis=dict(
             title="Dimension 2",
@@ -966,7 +1035,9 @@ def _(
         transition={"duration": 400, "easing": "cubic-in-out"},
     )
 
-    _ptype = "related ✓ (same category)" if _is_pos else "unrelated ✗ (different category)"
+    _ptype = (
+        "related ✓ (same category)" if _is_pos else "unrelated ✗ (different category)"
+    )
     _pair_md = mo.md(
         f"**Current pair:** *{_pair_a}* & *{_pair_b}* — {_ptype}  \n"
         f"Click **Closer** to pull together, **Farther** to push apart, "
@@ -1016,7 +1087,9 @@ def _(emb, emb_accuracy_history, evaluate_pair_accuracy, mo):
         _ax2.plot(_xs, _py, color="#1f77b4", marker=".", label="Positive pair acc")
         _ax2.plot(_xs, _ny, color="#d62728", marker=".", label="Negative pair acc")
         _ax2.plot(_xs, _ay, color="#ff7f0e", marker=".", label="Overall acc")
-        _ax2.axhline(50, color="#9e9e9e", linestyle="--", linewidth=1.5, label="50% baseline")
+        _ax2.axhline(
+            50, color="#9e9e9e", linestyle="--", linewidth=1.5, label="50% baseline"
+        )
         _ax2.set_xlabel("Training step")
         _ax2.set_ylabel("Accuracy (%)")
         _ax2.set_title("Pair accuracy over training")
@@ -1026,13 +1099,22 @@ def _(emb, emb_accuracy_history, evaluate_pair_accuracy, mo):
         _plt_chart.tight_layout()
 
         _buf2 = _io_chart.BytesIO()
-        _fig2.savefig(_buf2, format="png", dpi=110, bbox_inches="tight", facecolor="white", edgecolor="none")
+        _fig2.savefig(
+            _buf2,
+            format="png",
+            dpi=110,
+            bbox_inches="tight",
+            facecolor="white",
+            edgecolor="none",
+        )
         _plt_chart.close(_fig2)
         _chart_panel = mo.vstack(
             [
                 mo.md("## Pair Accuracy vs Training Steps"),
                 mo.callout(
-                    mo.md(f"**Current:** pos {_cp * 100:.0f}% · neg {_cn * 100:.0f}% · overall {_ca * 100:.0f}%"),
+                    mo.md(
+                        f"**Current:** pos {_cp * 100:.0f}% · neg {_cn * 100:.0f}% · overall {_ca * 100:.0f}%"
+                    ),
                     kind="info" if _ca >= 0.55 else "neutral",
                 ),
                 mo.image(_buf2.getvalue(), width=640),
@@ -1092,8 +1174,12 @@ def _(mo):
         value=next(iter(_sent_opts)),
         label="Sentence",
     )
-    win_ws_sl = mo.ui.slider(start=1, stop=3, step=1, value=2, label="Window size  k", show_value=True)
-    win_tgt_sl = mo.ui.slider(start=0, stop=9, step=1, value=1, label="Target word (index)", show_value=True)
+    win_ws_sl = mo.ui.slider(
+        start=1, stop=3, step=1, value=2, label="Window size  k", show_value=True
+    )
+    win_tgt_sl = mo.ui.slider(
+        start=0, stop=9, step=1, value=1, label="Target word (index)", show_value=True
+    )
     return win_sent_dd, win_tgt_sl, win_ws_sl
 
 
@@ -1144,23 +1230,43 @@ def _(mo, win_sent_dd, win_tgt_sl, win_ws_sl):
                 zorder=2,
             )
         )
-        _ax_win.text(_i, 0, _wd, ha="center", va="center", fontsize=10, color=_fc, zorder=3)
+        _ax_win.text(
+            _i, 0, _wd, ha="center", va="center", fontsize=10, color=_fc, zorder=3
+        )
     _l_br, _r_br = max(0, _t - _k), min(len(_words) - 1, _t + _k)
     _ax_win.annotate(
-        "", xy=(_r_br + 0.48, -0.48), xytext=(_l_br - 0.48, -0.48), arrowprops=dict(arrowstyle="<->", color="#555", lw=1.5)
+        "",
+        xy=(_r_br + 0.48, -0.48),
+        xytext=(_l_br - 0.48, -0.48),
+        arrowprops=dict(arrowstyle="<->", color="#555", lw=1.5),
     )
-    _ax_win.text((_l_br + _r_br) / 2, -0.60, f"window  k = {_k}", ha="center", va="top", fontsize=9, color="#555")
+    _ax_win.text(
+        (_l_br + _r_br) / 2,
+        -0.60,
+        f"window  k = {_k}",
+        ha="center",
+        va="top",
+        fontsize=9,
+        color="#555",
+    )
     _plt_win.tight_layout()
     _buf_win = _io_win.BytesIO()
-    _fig_win.savefig(_buf_win, format="png", dpi=110, bbox_inches="tight", facecolor="white")
+    _fig_win.savefig(
+        _buf_win, format="png", dpi=110, bbox_inches="tight", facecolor="white"
+    )
     _plt_win.close(_fig_win)
 
     _pos_txt = (
-        "\n\n".join(f"✅ (**{a}**, **{b}**) — positions {_t} & {ci}" for a, b, ci in _pos_pairs_win)
+        "\n\n".join(
+            f"✅ (**{a}**, **{b}**) — positions {_t} & {ci}"
+            for a, b, ci in _pos_pairs_win
+        )
         or "*No context words in window.*"
     )
     _neg_txt = (
-        "\n\n".join(f"❌ (**{a}**, **{b}**) — random sample" for a, b, _ in _neg_pairs_win)
+        "\n\n".join(
+            f"❌ (**{a}**, **{b}**) — random sample" for a, b, _ in _neg_pairs_win
+        )
         or "*No outside words to sample.*"
     )
 
@@ -1176,7 +1282,10 @@ def _(mo, win_sent_dd, win_tgt_sl, win_ws_sl):
             mo.hstack(
                 [
                     mo.callout(mo.md(f"**Positive pairs**\n\n{_pos_txt}"), kind="info"),
-                    mo.callout(mo.md(f"**Negative pairs** *(sampled)*\n\n{_neg_txt}"), kind="danger"),
+                    mo.callout(
+                        mo.md(f"**Negative pairs** *(sampled)*\n\n{_neg_txt}"),
+                        kind="danger",
+                    ),
                 ],
                 gap=1,
             ),
