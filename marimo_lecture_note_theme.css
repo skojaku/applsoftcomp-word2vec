@@ -41,20 +41,27 @@ h2, h3 {
 }
 
 /*
- * De-saturate marimo button colors.
- * kind="danger"  → destructive variant → bg-[var(--red-9)]    text-[var(--red-1)]
- * kind="warn"    → warn variant        → bg-[var(--yellow-9)]  text-[var(--yellow-12)]
- * kind="neutral" → secondary variant   → bg-secondary (unchanged)
+ * Remap marimo button colors to seaborn "colorblind" (Okabe-Ito) palette.
+ * kind="warn"    → warn variant        → --yellow-9  → blue      #0173b2
+ * kind="danger"  → destructive variant → --red-9     → vermillion #d55e00
+ * kind="neutral" → secondary variant   → unchanged (grey)
  *
- * Overriding these variables scoped to <button> only so callouts and
- * other components that also use --red-9 / --yellow-9 are unaffected.
+ * Variables are scoped to <button> so callouts / charts are unaffected.
  */
 button {
-  --red-9:    #a05555 !important;  /* muted terracotta  (was vivid red)    */
-  --red-10:   #8a4545 !important;
-  --red-11:   #733838 !important;
-  --yellow-9: #a08840 !important;  /* muted amber       (was vivid yellow) */
-  --yellow-10: #8a7530 !important;
-  --yellow-11: #6e5e25 !important;
-  --yellow-12: #ffffff !important; /* keep text white on amber background  */
+  /* warn → blue (positive action) */
+  --yellow-9:  #0173b2 !important;
+  --yellow-10: #015a8e !important;
+  --yellow-11: #01426a !important;
+  --yellow-12: #ffffff !important;  /* white text on blue */
+
+  /* danger → vermillion (negative action) */
+  --red-9:  #d55e00 !important;
+  --red-10: #b55000 !important;
+  --red-11: #954200 !important;
+  --red-1:  #ffffff !important;     /* white text on vermillion */
+
+  /* consistent font across all button kinds */
+  font-weight: 500 !important;
+  font-family: var(--marimo-text-font) !important;
 }
