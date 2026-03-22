@@ -472,7 +472,7 @@ def _(
         include_input=True,
         full_width=True,
     )
-    randomize_btn = mo.ui.button(label="Randomize", on_click=on_randomize, kind="neutral")
+    randomize_btn = mo.ui.button(label="Randomize", on_click=on_randomize, kind="success")
     add_btn = mo.ui.button(
         label="Add (+)",
         on_click=on_add,
@@ -867,7 +867,7 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
         kind="success",
         tooltip="Run 50 correct updates automatically.",
     )
-    randomize_emb_btn = mo.ui.button(label="Randomize", on_click=_on_randomize, kind="neutral")
+    randomize_emb_btn = mo.ui.button(label="Randomize", on_click=_on_randomize, kind="success")
     return (
         auto_train_btn,
         closer_btn,
