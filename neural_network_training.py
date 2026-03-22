@@ -786,7 +786,7 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
         start=0.05,
         stop=0.5,
         step=0.05,
-        value=0.2,
+        value=0.1,
         label="Learning rate η",
         show_value=True,
         include_input=True,
@@ -927,15 +927,12 @@ def _(
     for _cat, _words in CATEGORIES.items():
         _xs = [float(_e[WORD_INDEX[w], 0]) for w in _words]
         _ys = [float(_e[WORD_INDEX[w], 1]) for w in _words]
-        _ops = [
-            1.0 if WORD_INDEX[w] in _focused
-            else 0.6 if WORD_INDEX[w] in _prev_set
-            else 0.15
-            for w in _words
-        ]
+        _ops = [1.0 if WORD_INDEX[w] in _focused else 0.75 if WORD_INDEX[w] in _prev_set else 0.4 for w in _words]
         _tcols = [
-            CATEGORY_COLORS[_cat] if WORD_INDEX[w] in _focused
-            else CATEGORY_COLORS[_cat] if WORD_INDEX[w] in _prev_set
+            CATEGORY_COLORS[_cat]
+            if WORD_INDEX[w] in _focused
+            else CATEGORY_COLORS[_cat]
+            if WORD_INDEX[w] in _prev_set
             else "rgba(120,120,120,0.3)"
             for w in _words
         ]
