@@ -39,3 +39,22 @@ h2, h3 {
   margin: 1em 0 !important;
   overflow-x: auto;
 }
+
+/*
+ * De-saturate marimo button colors.
+ * kind="danger"  → destructive variant → bg-[var(--red-9)]    text-[var(--red-1)]
+ * kind="warn"    → warn variant        → bg-[var(--yellow-9)]  text-[var(--yellow-12)]
+ * kind="neutral" → secondary variant   → bg-secondary (unchanged)
+ *
+ * Overriding these variables scoped to <button> only so callouts and
+ * other components that also use --red-9 / --yellow-9 are unaffected.
+ */
+button {
+  --red-9:    #a05555 !important;  /* muted terracotta  (was vivid red)    */
+  --red-10:   #8a4545 !important;
+  --red-11:   #733838 !important;
+  --yellow-9: #a08840 !important;  /* muted amber       (was vivid yellow) */
+  --yellow-10: #8a7530 !important;
+  --yellow-11: #6e5e25 !important;
+  --yellow-12: #ffffff !important; /* keep text white on amber background  */
+}
