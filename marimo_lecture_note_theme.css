@@ -22,3 +22,10 @@
   line-height: 1.6;
   color: #1a1a1a;
 }
+
+/* Display-mode LaTeX ($$...$$  or  \[...\]) — larger and with breathing room */
+mjx-container[display="true"] {
+  font-size: 1.35em !important;
+  margin: 0.9em 0 !important;
+  overflow-x: auto;
+}
