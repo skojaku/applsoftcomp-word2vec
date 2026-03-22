@@ -477,40 +477,19 @@ def _(
         include_input=True,
         full_width=True,
     )
-    _s_primary = {
-        "background-color": "#5b82a6",
-        "color": "white",
-        "border": "none",
-        "border-radius": "4px",
-        "padding": "6px 16px",
-    }
-    _s_danger = {
-        "background-color": "#a05555",
-        "color": "white",
-        "border": "none",
-        "border-radius": "4px",
-        "padding": "6px 16px",
-    }
-    _s_neutral = {
-        "background-color": "#7a7a7a",
-        "color": "white",
-        "border": "none",
-        "border-radius": "4px",
-        "padding": "6px 16px",
-    }
-    randomize_btn = mo.ui.button(label="Randomize", on_click=on_randomize).style(
-        _s_neutral
-    )
+    randomize_btn = mo.ui.button(label="Randomize", on_click=on_randomize, kind="neutral")
     add_btn = mo.ui.button(
         label="Add (+)",
         on_click=on_add,
+        kind="warn",
         tooltip="w ← w + η·x on the first misclassified training face (in order).",
-    ).style(_s_primary)
+    )
     subtract_btn = mo.ui.button(
         label="Subtract (−) cat",
         on_click=on_subtract,
+        kind="danger",
         tooltip="w ← w − η·x when that face is truly cat; no-op if dog or no mistake.",
-    ).style(_s_danger)
+    )
     return (
         accuracy_history,
         add_btn,
@@ -884,37 +863,15 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
         set_emb_pair_idx(0)
         set_emb_accuracy_history([])
 
-    _s_primary = {
-        "background-color": "#5b82a6",
-        "color": "white",
-        "border": "none",
-        "border-radius": "4px",
-        "padding": "6px 16px",
-    }
-    _s_danger = {
-        "background-color": "#a05555",
-        "color": "white",
-        "border": "none",
-        "border-radius": "4px",
-        "padding": "6px 16px",
-    }
-    _s_neutral = {
-        "background-color": "#7a7a7a",
-        "color": "white",
-        "border": "none",
-        "border-radius": "4px",
-        "padding": "6px 16px",
-    }
-    closer_btn = mo.ui.button(label="Closer ↔", on_click=_on_closer).style(_s_primary)
-    farther_btn = mo.ui.button(label="Farther ↔", on_click=_on_farther).style(_s_danger)
+    closer_btn = mo.ui.button(label="Closer ↔", on_click=_on_closer, kind="warn")
+    farther_btn = mo.ui.button(label="Farther ↔", on_click=_on_farther, kind="danger")
     auto_train_btn = mo.ui.button(
         label="Train 50 steps",
         on_click=_on_auto_train,
+        kind="neutral",
         tooltip="Run 50 correct updates automatically.",
-    ).style(_s_neutral)
-    randomize_emb_btn = mo.ui.button(label="Randomize", on_click=_on_randomize).style(
-        _s_neutral
     )
+    randomize_emb_btn = mo.ui.button(label="Randomize", on_click=_on_randomize, kind="neutral")
     return (
         auto_train_btn,
         closer_btn,
