@@ -772,10 +772,13 @@ def _(NEG_PAIRS, POS_PAIRS, WORD_INDEX):
 @app.cell(hide_code=True)
 def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
     import numpy as _np_emb
+    import threading as _threading
 
     _V = len(VOCAB)
 
     emb, set_emb = mo.state(_np_emb.random.randn(_V, 2).astype(_np_emb.float32) * 0.1)
+    emb_before, set_emb_before = mo.state(None)       # embedding snapshot before last click
+    prev_pair_indices, set_prev_pair_indices = mo.state(None)  # (ia, ib) of last trained pair
     emb_click_count, set_emb_click_count = mo.state(0)
     emb_pair_idx, set_emb_pair_idx = mo.state(0)
     emb_accuracy_history, set_emb_accuracy_history = mo.state([])
@@ -785,7 +788,7 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
         start=0.05,
         stop=0.5,
         step=0.05,
-        value=0.1,
+        value=0.2,
         label="Learning rate η",
         show_value=True,
         include_input=True,
@@ -814,14 +817,24 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
     def _apply(is_closer):
         _eta = float(emb_lr_slider.value)
         _pi_raw = int(emb_pair_idx())
-        _ne = _step(emb(), _pi_raw, _eta, is_closer)
+        _pi = _pi_raw % len(PAIR_QUEUE)
+        _wa, _wb, _ = PAIR_QUEUE[_pi]
+        _ia, _ib = WORD_INDEX[_wa], WORD_INDEX[_wb]
+        _e_curr = emb()
+        # Snapshot before update — display uses this to keep rings at old positions
+        set_emb_before(_e_curr.copy())
+        set_prev_pair_indices((_ia, _ib))
+        # Move points immediately
+        _ne = _step(_e_curr, _pi_raw, _eta, is_closer)
         set_emb(_ne)
         _c = int(emb_click_count()) + 1
         set_emb_click_count(_c)
-        set_emb_pair_idx(_pi_raw + 1)
         _hist = list(emb_accuracy_history())
         _hist.append((_c, evaluate_pair_accuracy(_ne)))
         set_emb_accuracy_history(_hist)
+        # Advance pair index after 1 s — rings "stay" on old pair during the wait
+        _next = _pi_raw + 1
+        _threading.Timer(1.0, lambda: set_emb_pair_idx(_next)).start()
 
 
     def _on_closer(_v=None):
@@ -854,6 +867,8 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
 
     def _on_randomize(_v=None):
         set_emb(_np_emb.random.randn(_V, 2).astype(_np_emb.float32) * 0.1)
+        set_emb_before(None)
+        set_prev_pair_indices(None)
         set_emb_click_count(0)
         set_emb_pair_idx(0)
         set_emb_accuracy_history([])
@@ -872,10 +887,12 @@ def _(PAIR_QUEUE, VOCAB, WORD_INDEX, evaluate_pair_accuracy, mo):
         auto_train_btn,
         closer_btn,
         emb,
+        emb_before,
         emb_click_count,
         emb_lr_slider,
         emb_pair_idx,
         farther_btn,
+        prev_pair_indices,
         randomize_emb_btn,
     )
 
@@ -889,11 +906,13 @@ def _(
     auto_train_btn,
     closer_btn,
     emb,
+    emb_before,
     emb_click_count,
     emb_lr_slider,
     emb_pair_idx,
     farther_btn,
     mo,
+    prev_pair_indices,
     randomize_emb_btn,
 ):
     import plotly.graph_objects as _go
@@ -904,10 +923,32 @@ def _(
     _ia = WORD_INDEX[_pair_a]
     _ib = WORD_INDEX[_pair_b]
 
+    # Resolve ring positions:
+    # During the 1-second wait after a click, emb_pair_idx hasn't advanced yet,
+    # so (ia, ib) == prev_pair_indices → show rings at the OLD (pre-click) positions.
+    # After pair advances, show rings at current emb positions of the new pair.
+    _e_snap = emb_before() if emb_before() is not None else _e
+    _prev = prev_pair_indices()
+    _prev_ia, _prev_ib = _prev if _prev is not None else (_ia, _ib)
+    if (_prev_ia, _prev_ib) == (_ia, _ib):
+        # Waiting phase: rings frozen at pre-click positions
+        _ring_x = [float(_e_snap[_ia, 0]), float(_e_snap[_ib, 0])]
+        _ring_y = [float(_e_snap[_ia, 1]), float(_e_snap[_ib, 1])]
+    else:
+        # Pair advanced: rings follow current emb
+        _ring_x = [float(_e[_ia, 0]), float(_e[_ib, 0])]
+        _ring_y = [float(_e[_ia, 1]), float(_e[_ib, 1])]
+
+    _focused = {_ia, _ib}
     _traces = []
     for _cat, _words in CATEGORIES.items():
         _xs = [float(_e[WORD_INDEX[w], 0]) for w in _words]
         _ys = [float(_e[WORD_INDEX[w], 1]) for w in _words]
+        _ops = [1.0 if WORD_INDEX[w] in _focused else 0.18 for w in _words]
+        _tcols = [
+            CATEGORY_COLORS[_cat] if WORD_INDEX[w] in _focused else "rgba(120,120,120,0.35)"
+            for w in _words
+        ]
         _traces.append(
             _go.Scatter(
                 x=_xs,
@@ -916,25 +957,26 @@ def _(
                 name=_cat,
                 text=_words,
                 textposition="top right",
-                marker=dict(color=CATEGORY_COLORS[_cat], size=12),
+                marker=dict(color=CATEGORY_COLORS[_cat], size=12, opacity=_ops),
+                textfont=dict(color=_tcols),
             )
         )
 
-    # Current pair: dashed grey line connecting the two words
+    # Dashed line connecting the ring positions
     _traces.append(
         _go.Scatter(
-            x=[float(_e[_ia, 0]), float(_e[_ib, 0])],
-            y=[float(_e[_ia, 1]), float(_e[_ib, 1])],
+            x=_ring_x,
+            y=_ring_y,
             mode="lines",
             showlegend=False,
             line=dict(color="#555", dash="dash", width=1.5),
         )
     )
-    # Ring highlights on the two current-pair dots (keep their category colour)
+    # Ring highlights at the resolved positions
     _traces.append(
         _go.Scatter(
-            x=[float(_e[_ia, 0]), float(_e[_ib, 0])],
-            y=[float(_e[_ia, 1]), float(_e[_ib, 1])],
+            x=_ring_x,
+            y=_ring_y,
             mode="markers",
             showlegend=False,
             marker=dict(color="rgba(0,0,0,0)", size=22, line=dict(color="#333", width=2.5)),
