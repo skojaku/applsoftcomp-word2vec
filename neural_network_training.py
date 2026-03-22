@@ -923,21 +923,11 @@ def _(
     _ia = WORD_INDEX[_pair_a]
     _ib = WORD_INDEX[_pair_b]
 
-    # Resolve ring positions:
-    # During the 1-second wait after a click, emb_pair_idx hasn't advanced yet,
-    # so (ia, ib) == prev_pair_indices → show rings at the OLD (pre-click) positions.
-    # After pair advances, show rings at current emb positions of the new pair.
-    _e_snap = emb_before() if emb_before() is not None else _e
-    _prev = prev_pair_indices()
-    _prev_ia, _prev_ib = _prev if _prev is not None else (_ia, _ib)
-    if (_prev_ia, _prev_ib) == (_ia, _ib):
-        # Waiting phase: rings frozen at pre-click positions
-        _ring_x = [float(_e_snap[_ia, 0]), float(_e_snap[_ib, 0])]
-        _ring_y = [float(_e_snap[_ia, 1]), float(_e_snap[_ib, 1])]
-    else:
-        # Pair advanced: rings follow current emb
-        _ring_x = [float(_e[_ia, 0]), float(_e[_ib, 0])]
-        _ring_y = [float(_e[_ia, 1]), float(_e[_ib, 1])]
+    # Rings always follow the current emb positions of the focused pair.
+    # The 1-second timer delay controls *which* pair gets the ring (pair index),
+    # not where the ring sits — so rings move with their points immediately.
+    _ring_x = [float(_e[_ia, 0]), float(_e[_ib, 0])]
+    _ring_y = [float(_e[_ia, 1]), float(_e[_ib, 1])]
 
     _focused = {_ia, _ib}
     _traces = []
