@@ -15,6 +15,10 @@
     Consolas, monospace;
 }
 
+h3 {
+  font-weight: 700 !important;
+}
+
 /* Lecture body: 1.1rem @ 1.6 — bump slightly for live demo readability */
 .paragraph {
   font-family: var(--marimo-text-font);
