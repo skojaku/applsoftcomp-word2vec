@@ -74,9 +74,9 @@ button {
   --grass-11: #15aabf !important;   /* border */
   --grass-1:  #0b7285 !important;   /* text */
 
-  /* neutral → dark charcoal: dark bg, white text */
-  --secondary:             #343a40 !important;
-  --secondary-foreground:  #ffffff !important;
+  /* neutral → light grey bg, charcoal text */
+  --secondary:             #dee2e6 !important;
+  --secondary-foreground:  #343a40 !important;
 
   font-weight: 500 !important;
   font-family: var(--marimo-text-font) !important;
