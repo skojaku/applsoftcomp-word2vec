@@ -23,19 +23,15 @@
   color: #1a1a1a;
 }
 
-/* Display-mode LaTeX ($$...$$  or  \[...\]) — larger and with breathing room */
-mjx-container[display="true"] {
-  font-size: 2.4em !important;
-  margin: 1em 0 !important;
-  overflow-x: auto;
+/* Display-mode LaTeX ($$...$$  or  \[...\]).
+   Marimo uses KaTeX; it hard-codes font-size:110% on .katex, so we must
+   override that inner element directly. Inline math (.katex not inside
+   .katex-display) is left at the default size. */
+.katex-display .katex {
+  font-size: 180% !important;
 }
 
-/* Scale the rendered SVG/CHTML directly — works even when font-size is
-   overridden by MathJax's internal em calculation */
-mjx-container[display="true"] > svg,
-mjx-container[display="true"] > mjx-math {
-  transform: scale(1.6);
-  transform-origin: center top;
-  display: block;
-  margin: 0.4em auto;
+.katex-display {
+  margin: 1em 0 !important;
+  overflow-x: auto;
 }
