@@ -41,27 +41,39 @@ h2, h3 {
 }
 
 /*
- * Remap marimo button colors to seaborn "colorblind" (Okabe-Ito) palette.
- * kind="warn"    → warn variant        → --yellow-9  → blue      #0173b2
- * kind="danger"  → destructive variant → --red-9     → vermillion #d55e00
- * kind="neutral" → secondary variant   → unchanged (grey)
+ * Button color palette
  *
- * Variables are scoped to <button> so callouts / charts are unaffected.
+ * Red   (danger)  : #e03131  #fa5252  #ff8787  #ffc9c9  #fff5f5
+ * Blue  (warn)    : #1971c2  #228be6  #4dabf7  #a5d8ff
+ * Teal  (success) : #0c8599  #15aabf  #3bc9db  #99e9f2  #e3fafc
+ *
+ * Marimo kind → variant → CSS variable
+ *   kind="warn"    → --yellow-*  → blue
+ *   kind="danger"  → --red-*     → red
+ *   kind="success" → --grass-*   → teal
+ *   kind="neutral" → secondary   → unchanged (grey)
+ *
+ * Scoped to <button> so callouts / charts are unaffected.
  */
 button {
-  /* warn → blue (positive action) */
-  --yellow-9:  #0173b2 !important;
-  --yellow-10: #015a8e !important;
-  --yellow-11: #01426a !important;
-  --yellow-12: #ffffff !important;  /* white text on blue */
+  /* warn → blue */
+  --yellow-9:  #228be6 !important;
+  --yellow-10: #1971c2 !important;
+  --yellow-11: #1864ab !important;
+  --yellow-12: #ffffff !important;
 
-  /* danger → vermillion (negative action) */
-  --red-9:  #d55e00 !important;
-  --red-10: #b55000 !important;
-  --red-11: #954200 !important;
-  --red-1:  #ffffff !important;     /* white text on vermillion */
+  /* danger → red */
+  --red-9:  #e03131 !important;
+  --red-10: #c92a2a !important;
+  --red-11: #b02525 !important;
+  --red-1:  #fff5f5 !important;
 
-  /* consistent font across all button kinds */
+  /* success → teal */
+  --grass-9:  #15aabf !important;
+  --grass-10: #0c8599 !important;
+  --grass-11: #0b7285 !important;
+  --grass-1:  #e3fafc !important;
+
   font-weight: 500 !important;
   font-family: var(--marimo-text-font) !important;
 }
