@@ -1187,8 +1187,8 @@ def _(dot_angle_slider, dot_len_k_slider, dot_len_q_slider, mo):
             arrowcolor=color,
         )
 
-    _add_arrow(_fig, _qx, _qy, "#1f77b4", "q (query)", 1, 1)
-    _add_arrow(_fig, _kx, _ky, "#d62728", "k (key)", 1, 1)
+    _add_arrow(_fig, _qx, _qy, "#1971c2", "q (query)", 1, 1)
+    _add_arrow(_fig, _kx, _ky, "#e03131", "k (key)", 1, 1)
 
     # Draw arc showing angle
     _arc_r = min(_len_q, _len_k, 0.4)
@@ -1214,7 +1214,7 @@ def _(dot_angle_slider, dot_len_k_slider, dot_len_q_slider, mo):
     )
 
     # Dot product bar
-    _bar_color = "#2ca02c" if _dot >= 0 else "#d62728"
+    _bar_color = "#0c8599" if _dot >= 0 else "#d62728"
     _fig.add_trace(
         _go_dot.Bar(
             x=["q · k"], y=[_dot],
@@ -1286,7 +1286,7 @@ def _(mo):
     _fig_sig.add_trace(_go_sig.Scatter(
         x=_s.tolist(), y=_sigmoid.tolist(),
         mode="lines", name="σ(s) = 1 / (1 + e⁻ˢ)",
-        line=dict(color="#1f77b4", width=3),
+        line=dict(color="#1971c2", width=3),
     ))
 
     # Reference lines
@@ -1295,9 +1295,9 @@ def _(mo):
 
     # Annotations
     _fig_sig.add_annotation(x=6, y=0.95, text="→ 1 (likely pair)", showarrow=False,
-                            font=dict(size=12, color="#2ca02c"))
+                            font=dict(size=12, color="#0c8599"))
     _fig_sig.add_annotation(x=-6, y=0.05, text="→ 0 (unlikely pair)", showarrow=False,
-                            font=dict(size=12, color="#d62728"))
+                            font=dict(size=12, color="#e03131"))
     _fig_sig.add_annotation(x=0.8, y=0.55, text="σ(0) = 0.5", showarrow=False,
                             font=dict(size=11, color="#555"))
 
