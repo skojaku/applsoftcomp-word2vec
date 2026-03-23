@@ -1228,10 +1228,10 @@ def _(dot_angle_slider, dot_len_k_slider, dot_len_q_slider, mo):
     # Layout
     _lim = max(_len_q, _len_k) + 0.3
     _bar_lim = max(abs(_dot) + 0.5, 2.5)
-    _fig.update_xaxes(range=[-_lim, _lim], zeroline=True, scaleanchor="y", row=1, col=1)
-    _fig.update_yaxes(range=[-_lim, _lim], zeroline=True, row=1, col=1)
+    _fig.update_xaxes(range=[-_lim, _lim], zeroline=True, scaleanchor="y", showticklabels=False, row=1, col=1)
+    _fig.update_yaxes(range=[-_lim, _lim], zeroline=True, showticklabels=False, row=1, col=1)
     _fig.update_xaxes(showticklabels=False, row=1, col=2)
-    _fig.update_yaxes(range=[-_bar_lim, _bar_lim], zeroline=True, row=1, col=2)
+    _fig.update_yaxes(range=[-_bar_lim, _bar_lim], zeroline=True, showticklabels=False, row=1, col=2)
 
     _fig.update_layout(
         height=400, margin=dict(l=40, r=40, t=40, b=40),
