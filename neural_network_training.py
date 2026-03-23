@@ -503,7 +503,26 @@ def _(mo):
     ---
 
     ## Part II — From Pixels to Words: Word Embeddings
+    """)
+    return
 
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.center(
+        mo.image(
+            src="./figs/word-embedding.png",
+            alt="Rosenblatt's perceptron for word embeddings",
+            width="100%",
+            rounded=True,
+        )
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ### One-hot encoding: words as vectors
 
     The idea of Rosenblatt's neural networks can be extended to natural language processing. To simplify the story, let's focus on a unit of language, i.e., *words*.
@@ -1038,154 +1057,30 @@ def _(mo):
     mo.md(r"""
     ### From Hand-labelled Pairs to Self-supervised Learning
 
-    So far we labelled every pair by hand. For a vocabulary of 50,000 words that would
-    require billions of labels. This is not clearly feasible.
+    So far we labelled every pair by hand. For a vocabulary of 50,000 words that would require billions of labels. This is not clearly feasible.
 
+    Let's step back and think about what defines the meaning of a word, for example "bird." You might say that a "bird" is an animal that can fly, with feathers. But some birds don't have feathers (like baby chickens), others can't fly (like penguins), and a bat flies without feathers yet is not a bird.
 
+    Words derive their meaning not from intrinsic properties but from their relationships to other words. "Bird" means what it means because it contrasts with "fish," "insect," and "mammal," and "hot" only means what it means because "cold" exists.
 
-    **Firth's distributional hypothesis (1957):**
-    > "You shall know a word by the company it keeps."
+    This leads to the idea of **distributional hypothesis**. Linguist J.R. Firth argued that a word is characterized by the company it keeps. Words "greese" and "swans" both appear near "pond" and "wings," while neither appears near "fins" or "gills."
 
-    Words that appear **near each other** in text tend to be semantically related —
-    *cat* and *dog* both appear near *pet*, *feed*, *play*. We can exploit this for free.
+    Now, going back to the problem of generating training data for word embedding models. Based on the distributional hypothesis, we consider that a word is defined by the other words it appears with. Operationally, we slide a fixed window of say ±2 words over every word, and all words inside the window form **positive pairs** while randomly sampled words as **negative pairs**. A model trained to distinguish the two is implicitly learning meaning from raw text.
 
-    ### The sliding-window trick
-
-    Slide a **context window** of half-width $k$ over a sentence.
-    For each **target word** at position $t$:
-
-    | Pair type | How it's generated |
-    |-----------|-------------------|
-    | **Positive** | target + every word within $k$ positions (left or right) |
-    | **Negative** | target + random words sampled from *outside* the window |
-
-    This turns raw text into millions of training pairs — **zero human labelling required**.
-    This is the core idea behind **word2vec** (Mikolov et al., 2013).
-
-    Use the interactive demo below to see exactly which pairs are generated.
+    This is the core idea behind **Word2Vec**. Meaning is never labelled directly but emerges from the structure of language itself.
     """)
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    # Cell A: create widgets and return them so downstream cell can read .value
-    _SENTS = [
-        "the cat chased the mouse near the big old tree",
-        "the dog ran quickly across the green park today",
-        "she felt happy and very calm after the long walk",
-        "a small fish swam slowly under the dark blue water",
-    ]
-    _sent_opts = {f"[{i + 1}]  {s}": s for i, s in enumerate(_SENTS)}
-    win_sent_dd = mo.ui.dropdown(
-        options=_sent_opts,
-        value=next(iter(_sent_opts)),
-        label="Sentence",
-    )
-    win_ws_sl = mo.ui.slider(start=1, stop=3, step=1, value=2, label="Window size  k", show_value=True)
-    win_tgt_sl = mo.ui.slider(start=0, stop=9, step=1, value=1, label="Target word (index)", show_value=True)
-    return win_sent_dd, win_tgt_sl, win_ws_sl
-
-
-@app.cell(hide_code=True)
-def _(mo, win_sent_dd, win_tgt_sl, win_ws_sl):
-    # Cell B: access .value in a downstream cell — marimo allows this
-    import io as _io_win
-    import matplotlib.pyplot as _plt_win
-    import matplotlib.patches as _mp_win
-    import random as _rnd_win
-
-    _words = win_sent_dd.value.split()
-    _k = int(win_ws_sl.value)
-    _t = min(int(win_tgt_sl.value), len(_words) - 1)
-
-    _pos_pairs_win = []
-    for _off in range(1, _k + 1):
-        if _t - _off >= 0:
-            _pos_pairs_win.append((_words[_t], _words[_t - _off], _t - _off))
-        if _t + _off < len(_words):
-            _pos_pairs_win.append((_words[_t], _words[_t + _off], _t + _off))
-
-    _outside_idx = [i for i in range(len(_words)) if abs(i - _t) > _k]
-    _rnd_win.seed(0)
-    _neg_idx_win = _rnd_win.sample(_outside_idx, min(3, len(_outside_idx)))
-    _neg_pairs_win = [(_words[_t], _words[i], i) for i in sorted(_neg_idx_win)]
-
-    # Sentence visualisation
-    _fig_win, _ax_win = _plt_win.subplots(figsize=(max(8, len(_words) * 0.92), 2.1))
-    _ax_win.set_xlim(-0.7, len(_words) - 0.3)
-    _ax_win.set_ylim(-0.65, 0.5)
-    _ax_win.axis("off")
-    for _i, _wd in enumerate(_words):
-        if _i == _t:
-            _bg, _fc = "#d62728", "white"
-        elif abs(_i - _t) <= _k:
-            _bg, _fc = "#1f77b4", "white"
-        else:
-            _bg, _fc = "#ecf0f1", "#555"
-        _ax_win.add_patch(
-            _mp_win.FancyBboxPatch(
-                (_i - 0.42, -0.32),
-                0.84,
-                0.64,
-                boxstyle="round,pad=0.04",
-                linewidth=0,
-                facecolor=_bg,
-                zorder=2,
-            )
+    mo.center(
+        mo.image(
+            src="./figs/sliding-window-word-embedding.png",
+            alt="Generating the data for self-suprvised training",
+            width="70%",
+            rounded=True,
         )
-        _ax_win.text(_i, 0, _wd, ha="center", va="center", fontsize=10, color=_fc, zorder=3)
-    _l_br, _r_br = max(0, _t - _k), min(len(_words) - 1, _t + _k)
-    _ax_win.annotate(
-        "",
-        xy=(_r_br + 0.48, -0.48),
-        xytext=(_l_br - 0.48, -0.48),
-        arrowprops=dict(arrowstyle="<->", color="#555", lw=1.5),
-    )
-    _ax_win.text(
-        (_l_br + _r_br) / 2,
-        -0.60,
-        f"window  k = {_k}",
-        ha="center",
-        va="top",
-        fontsize=9,
-        color="#555",
-    )
-    _plt_win.tight_layout()
-    _buf_win = _io_win.BytesIO()
-    _fig_win.savefig(_buf_win, format="png", dpi=110, bbox_inches="tight", facecolor="white")
-    _plt_win.close(_fig_win)
-
-    _pos_txt = (
-        "\n\n".join(f"✅ (**{a}**, **{b}**) — positions {_t} & {ci}" for a, b, ci in _pos_pairs_win)
-        or "*No context words in window.*"
-    )
-    _neg_txt = (
-        "\n\n".join(f"❌ (**{a}**, **{b}**) — random sample" for a, b, _ in _neg_pairs_win)
-        or "*No outside words to sample.*"
-    )
-
-    mo.vstack(
-        [
-            mo.md("## Interactive: Sliding Window → Training Pairs"),
-            mo.md(
-                "Move the sliders to explore how a co-occurrence window generates pairs from raw text.  \n"
-                "🔴 **Red** = target word · 🔷 **Blue** = context window (positive) · ⬜ **Grey** = outside (negative pool)"
-            ),
-            mo.hstack([win_sent_dd, win_ws_sl, win_tgt_sl], gap=1.5, align="end"),
-            mo.image(_buf_win.getvalue(), width=720),
-            mo.hstack(
-                [
-                    mo.callout(mo.md(f"**Positive pairs**\n\n{_pos_txt}"), kind="info"),
-                    mo.callout(
-                        mo.md(f"**Negative pairs** *(sampled)*\n\n{_neg_txt}"),
-                        kind="danger",
-                    ),
-                ],
-                gap=1,
-            ),
-        ],
-        gap=1,
     )
     return
 
@@ -1193,39 +1088,106 @@ def _(mo, win_sent_dd, win_tgt_sl, win_ws_sl):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ---
+    ## Query and Key — Two Roles of a Word
 
-    ## Step 5 — Mathematical Summary
+    Look at the sliding window again. When the window is centred on **"cat"**, "cat" is the *focal word* and its neighbours ("The", "sat", …) are *context words*. But when we slide the window one step to **"sat"**, "sat" becomes focal and "cat" becomes context.
 
-    | Symbol | Meaning |
-    |--------|---------|
-    | $V$ | vocabulary size |
-    | $\mathbf{x}_i \in \{0,1\}^V$ | one-hot vector for word $i$ |
-    | $W \in \mathbb{R}^{V \times K}$ | embedding matrix (one row per word) |
-    | $\mathbf{e}_i = \text{row}_i(W) \in \mathbb{R}^K$ | embedding of word $i$ |
+    The same word plays **two different roles** depending on where the window sits:
 
-    ### Update rule for pair $(i,\, j)$
+    | Role | Also called | Example |
+    |------|-------------|---------|
+    | **Focal** (centre of the window) | *query* | "cat" when the window is centred on "cat" |
+    | **Context** (neighbour) | *key* | "cat" when the window is centred on "sat" |
 
-    Compute $\boldsymbol{\delta} = \mathbf{e}_j - \mathbf{e}_i$ from **original** values, then:
+    Because these roles are fundamentally different, we give each its own neural network (i.e., its own weight matrix):
 
-    | Signal | Update |
-    |--------|--------|
-    | Positive (closer) | $\mathbf{e}_i \mathrel{+}= \eta\boldsymbol{\delta}$ ; $\mathbf{e}_j \mathrel{-}= \eta\boldsymbol{\delta}$ |
-    | Negative (farther) | $\mathbf{e}_i \mathrel{-}= \eta\boldsymbol{\delta}$ ; $\mathbf{e}_j \mathrel{+}= \eta\boldsymbol{\delta}$ |
+    $$W_Q \in \mathbb{R}^{K \times V} \quad \text{(query matrix — for the focal role)}$$
+    $$W_K \in \mathbb{R}^{K \times V} \quad \text{(key matrix — for the context role)}$$
 
-    Both moves preserve the midpoint $(\mathbf{e}_i + \mathbf{e}_j)/2$.
-    **Closer** shrinks the gap; **Farther** stretches it.
+    where $V$ is the vocabulary size and $K$ is the embedding dimension. Each matrix maps a one-hot vector $\mathbf{x}_i \in \{0,1\}^V$ to a $K$-dimensional vector:
 
-    ### Scaling to real corpora: word2vec
+    $$\mathbf{q}_i = W_Q\,\mathbf{x}_i \qquad \text{(query vector of word } i\text{)}$$
+    $$\mathbf{k}_i = W_K\,\mathbf{x}_i \qquad \text{(key vector of word } i\text{)}$$
 
-    In **word2vec** (skip-gram with negative sampling, Mikolov et al. 2013), the same
-    idea is applied to billions of $(target, context)$ pairs from raw text.
-    Each word gets a 300-dimensional vector. After training on a large corpus:
+    Every word now has **two** embedding vectors — one for each role. The weights are **not shared**; they are learned independently.
+    """)
+    return
 
-    $$\mathbf{e}_{\text{king}} - \mathbf{e}_{\text{man}} + \mathbf{e}_{\text{woman}}
-    \approx \mathbf{e}_{\text{queen}}$$
 
-    Geometry encodes meaning — entirely from co-occurrence statistics, with no human labels.
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Training — From Dot Products to Gradient Descent
+
+    ### 1. Alignment score
+
+    Given a focal word $i$ and a context word $j$ from the sliding window, we measure how well they "fit" together with the dot product of their embeddings:
+
+    $$s = \mathbf{q}_i \cdot \mathbf{k}_j$$
+
+    A large positive $s$ means the model thinks $j$ is a likely context for $i$; a large negative $s$ means unlikely.
+
+    ### 2. The problem: turning a score into a probability
+
+    The score $s$ can be any real number $(-\infty, +\infty)$, but we need a probability $\hat{y} \in (0,1)$: *"how likely is this pair to be a real co-occurrence?"*. We also need the function to be smooth (differentiable) so we can use gradient descent.
+
+    ### 3. Logistic (sigmoid) function
+
+    The **sigmoid function** does exactly this:
+
+    $$\sigma(s) = \frac{1}{1 + e^{-s}}$$
+
+    Key properties:
+    - Maps $\mathbb{R} \to (0,1)$
+    - $\sigma(0) = 0.5$, $\sigma(s) \to 1$ as $s \to +\infty$, $\sigma(s) \to 0$ as $s \to -\infty$
+    - Smooth and differentiable everywhere
+
+    We interpret $\hat{y} = \sigma(s) = \sigma(\mathbf{q}_i \cdot \mathbf{k}_j)$ as the predicted probability that the pair $(i, j)$ is a genuine co-occurrence.
+
+    ### 4. Loss function (binary cross-entropy)
+
+    Let $y = 1$ for a real (positive) pair and $y = 0$ for a fake (negative) pair. The loss for one pair is:
+
+    $$L = -\bigl[\,y \ln \sigma(s) \;+\; (1-y) \ln\bigl(1-\sigma(s)\bigr)\,\bigr]$$
+
+    This penalises the model when its prediction $\sigma(s)$ is far from the true label $y$.
+
+    ### 5. Gradient derivation (step by step)
+
+    We need $\frac{\partial L}{\partial \mathbf{q}_i}$ and $\frac{\partial L}{\partial \mathbf{k}_j}$ to update the embeddings.
+
+    **Step 1 — Derivative of the sigmoid:**
+    $$\sigma'(s) = \sigma(s)\bigl(1-\sigma(s)\bigr)$$
+
+    **Step 2 — Derivative of the loss w.r.t. the score $s$:**
+    $$\frac{\partial L}{\partial s} = \sigma(s) - y$$
+
+    (This clean result follows from combining the log derivatives with the sigmoid identity above.)
+
+    **Step 3 — Derivative of the score w.r.t. the embeddings:**
+    $$\frac{\partial s}{\partial \mathbf{q}_i} = \mathbf{k}_j, \qquad \frac{\partial s}{\partial \mathbf{k}_j} = \mathbf{q}_i$$
+
+    **Step 4 — Chain rule:**
+    $$\frac{\partial L}{\partial \mathbf{q}_i} = \bigl(\sigma(s)-y\bigr)\,\mathbf{k}_j, \qquad \frac{\partial L}{\partial \mathbf{k}_j} = \bigl(\sigma(s)-y\bigr)\,\mathbf{q}_i$$
+
+    ### 6. Update rule (gradient descent)
+
+    With learning rate $\eta$:
+
+    $$\mathbf{q}_i \;\leftarrow\; \mathbf{q}_i \;-\; \eta\bigl(\sigma(s)-y\bigr)\,\mathbf{k}_j$$
+    $$\mathbf{k}_j \;\leftarrow\; \mathbf{k}_j \;-\; \eta\bigl(\sigma(s)-y\bigr)\,\mathbf{q}_i$$
+
+    **Intuition:**
+    - For a **positive pair** ($y=1$): $\sigma(s)-1 < 0$, so both vectors are nudged *toward* each other — increasing their dot product.
+    - For a **negative pair** ($y=0$): $\sigma(s)-0 > 0$, so both vectors are pushed *apart* — decreasing their dot product.
+
+    ### 7. Scaling to real corpora — Word2Vec
+
+    This is exactly the **skip-gram with negative sampling** algorithm (Mikolov et al., 2013). Applied to billions of $(focal, context)$ pairs from a large text corpus, with $K = 300$ dimensions, it produces embeddings where geometry encodes meaning:
+
+    $$\mathbf{q}_{\text{king}} - \mathbf{q}_{\text{man}} + \mathbf{q}_{\text{woman}} \approx \mathbf{q}_{\text{queen}}$$
+
+    No human labels — just co-occurrence statistics and gradient descent.
     """)
     return
 
