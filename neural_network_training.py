@@ -1090,14 +1090,14 @@ def _(mo):
     mo.md(r"""
     ## Query and Key — Two Roles of a Word
 
-    Look at the sliding window again. When the window is centred on **"cat"**, "cat" is the *focal word* and its neighbours ("The", "sat", …) are *context words*. But when we slide the window one step to **"sat"**, "sat" becomes focal and "cat" becomes context.
+    Look at the sliding window again. In the sentence *"the quick brown fox jumps over the lazy dog"* with window size ±2, when the window is centred on **"fox"**, "fox" is the *focal word* and {"brown", "quick", "jumps", "over"} are *context words*. But when we slide the window to **"jumps"**, "jumps" becomes focal and "fox" becomes context.
 
     The same word plays **two different roles** depending on where the window sits:
 
     | Role | Also called | Example |
     |------|-------------|---------|
-    | **Focal** (centre of the window) | *query* | "cat" when the window is centred on "cat" |
-    | **Context** (neighbour) | *key* | "cat" when the window is centred on "sat" |
+    | **Focal** (centre of the window) | *query* | "fox" when the window is centred on "fox" |
+    | **Context** (neighbour) | *key* | "fox" when the window is centred on "jumps" |
 
     Because these roles are fundamentally different, we give each its own neural network (i.e., its own weight matrix):
 
