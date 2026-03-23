@@ -1126,7 +1126,129 @@ def _(mo):
     $$s = \mathbf{q}_i \cdot \mathbf{k}_j$$
 
     A large positive $s$ means the model thinks $j$ is a likely context for $i$; a large negative $s$ means unlikely.
+    """)
+    return
 
+
+@app.cell(hide_code=True)
+def _(mo):
+    dot_angle_slider = mo.ui.slider(
+        start=0, stop=360, step=1, value=45, label="Angle of **k** (degrees)"
+    )
+    dot_len_q_slider = mo.ui.slider(
+        start=0.1, stop=2.0, step=0.05, value=1.0, label="Length of **q**"
+    )
+    dot_len_k_slider = mo.ui.slider(
+        start=0.1, stop=2.0, step=0.05, value=1.0, label="Length of **k**"
+    )
+    return dot_angle_slider, dot_len_k_slider, dot_len_q_slider
+
+
+@app.cell(hide_code=True)
+def _(dot_angle_slider, dot_len_k_slider, dot_len_q_slider, mo):
+    import numpy as _np_dot
+    import plotly.graph_objects as _go_dot
+    from plotly.subplots import make_subplots as _make_subplots
+
+    _angle_deg = dot_angle_slider.value
+    _len_q = dot_len_q_slider.value
+    _len_k = dot_len_k_slider.value
+
+    # q is fixed along x-axis
+    _qx, _qy = _len_q, 0.0
+    _angle_rad = _np_dot.radians(_angle_deg)
+    _kx = _len_k * _np_dot.cos(_angle_rad)
+    _ky = _len_k * _np_dot.sin(_angle_rad)
+
+    _dot = _qx * _kx + _qy * _ky  # q · k
+
+    # --- Build figure with subplots: vectors on left, bar on right ---
+    _fig = _make_subplots(
+        rows=1, cols=2, column_widths=[0.75, 0.25],
+        horizontal_spacing=0.08,
+        subplot_titles=("Vectors", "Dot product"),
+    )
+
+    # Arrow helper: line + arrowhead annotation
+    def _add_arrow(fig, x, y, color, name, row, col):
+        fig.add_trace(
+            _go_dot.Scatter(
+                x=[0, x], y=[0, y], mode="lines",
+                line=dict(color=color, width=3), name=name,
+                showlegend=True,
+            ),
+            row=row, col=col,
+        )
+        fig.add_annotation(
+            x=x, y=y, ax=0, ay=0,
+            xref=f"x{'' if col == 1 else col}", yref=f"y{'' if col == 1 else col}",
+            axref=f"x{'' if col == 1 else col}", ayref=f"y{'' if col == 1 else col}",
+            showarrow=True, arrowhead=2, arrowsize=1.5, arrowwidth=3,
+            arrowcolor=color,
+        )
+
+    _add_arrow(_fig, _qx, _qy, "#1f77b4", "q (query)", 1, 1)
+    _add_arrow(_fig, _kx, _ky, "#d62728", "k (key)", 1, 1)
+
+    # Draw arc showing angle
+    _arc_r = min(_len_q, _len_k, 0.4)
+    _arc_t = _np_dot.linspace(0, _angle_rad, 40)
+    _fig.add_trace(
+        _go_dot.Scatter(
+            x=(_arc_r * _np_dot.cos(_arc_t)).tolist(),
+            y=(_arc_r * _np_dot.sin(_arc_t)).tolist(),
+            mode="lines", line=dict(color="#888", width=1.5, dash="dot"),
+            showlegend=False,
+        ),
+        row=1, col=1,
+    )
+
+    # Angle label
+    _mid_angle = _angle_rad / 2
+    _fig.add_annotation(
+        x=float((_arc_r + 0.15) * _np_dot.cos(_mid_angle)),
+        y=float((_arc_r + 0.15) * _np_dot.sin(_mid_angle)),
+        text=f"{_angle_deg}°", showarrow=False,
+        font=dict(size=12, color="#555"),
+        xref="x", yref="y",
+    )
+
+    # Dot product bar
+    _bar_color = "#2ca02c" if _dot >= 0 else "#d62728"
+    _fig.add_trace(
+        _go_dot.Bar(
+            x=["q · k"], y=[_dot],
+            marker_color=_bar_color, showlegend=False,
+            text=[f"{_dot:.2f}"], textposition="outside",
+            textfont=dict(size=16, color=_bar_color),
+        ),
+        row=1, col=2,
+    )
+
+    # Layout
+    _lim = max(_len_q, _len_k) + 0.3
+    _bar_lim = max(abs(_dot) + 0.5, 2.5)
+    _fig.update_xaxes(range=[-_lim, _lim], zeroline=True, scaleanchor="y", row=1, col=1)
+    _fig.update_yaxes(range=[-_lim, _lim], zeroline=True, row=1, col=1)
+    _fig.update_xaxes(showticklabels=False, row=1, col=2)
+    _fig.update_yaxes(range=[-_bar_lim, _bar_lim], zeroline=True, row=1, col=2)
+
+    _fig.update_layout(
+        height=400, margin=dict(l=40, r=40, t=40, b=40),
+        legend=dict(x=0.01, y=0.99),
+        plot_bgcolor="white",
+    )
+
+    mo.vstack([
+        mo.hstack([dot_angle_slider, dot_len_q_slider, dot_len_k_slider], justify="center"),
+        _fig,
+    ])
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ### 2. The problem: turning a score into a probability
 
     The score $s$ can be any real number $(-\infty, +\infty)$, but we need a probability $\hat{y} \in (0,1)$: *"how likely is this pair to be a real co-occurrence?"*. We also need the function to be smooth (differentiable) so we can use gradient descent.
@@ -1137,11 +1259,65 @@ def _(mo):
 
     $$\sigma(s) = \frac{1}{1 + e^{-s}}$$
 
-    Key properties:
-    - Maps $\mathbb{R} \to (0,1)$
-    - $\sigma(0) = 0.5$, $\sigma(s) \to 1$ as $s \to +\infty$, $\sigma(s) \to 0$ as $s \to -\infty$
-    - Smooth and differentiable everywhere
+    You can think of the sigmoid as a **smooth version of a step function**: a step function snaps from 0 to 1 at $s=0$, but the sigmoid makes that transition gradual and differentiable — which is exactly what gradient descent needs.
+    """)
+    return
 
+
+@app.cell(hide_code=True)
+def _(mo):
+    import numpy as _np_sig
+    import plotly.graph_objects as _go_sig
+
+    _s = _np_sig.linspace(-8, 8, 300)
+    _sigmoid = 1 / (1 + _np_sig.exp(-_s))
+    _step = (_s >= 0).astype(float)
+
+    _fig_sig = _go_sig.Figure()
+
+    # Step function
+    _fig_sig.add_trace(_go_sig.Scatter(
+        x=_s.tolist(), y=_step.tolist(),
+        mode="lines", name="Step function",
+        line=dict(color="#aaa", width=2, dash="dash"),
+    ))
+
+    # Sigmoid
+    _fig_sig.add_trace(_go_sig.Scatter(
+        x=_s.tolist(), y=_sigmoid.tolist(),
+        mode="lines", name="σ(s) = 1 / (1 + e⁻ˢ)",
+        line=dict(color="#1f77b4", width=3),
+    ))
+
+    # Reference lines
+    _fig_sig.add_hline(y=0.5, line_dash="dot", line_color="#ccc", line_width=1)
+    _fig_sig.add_vline(x=0, line_dash="dot", line_color="#ccc", line_width=1)
+
+    # Annotations
+    _fig_sig.add_annotation(x=6, y=0.95, text="→ 1 (likely pair)", showarrow=False,
+                            font=dict(size=12, color="#2ca02c"))
+    _fig_sig.add_annotation(x=-6, y=0.05, text="→ 0 (unlikely pair)", showarrow=False,
+                            font=dict(size=12, color="#d62728"))
+    _fig_sig.add_annotation(x=0.8, y=0.55, text="σ(0) = 0.5", showarrow=False,
+                            font=dict(size=11, color="#555"))
+
+    _fig_sig.update_layout(
+        xaxis_title="s = q · k",
+        yaxis_title="σ(s)",
+        height=350,
+        margin=dict(l=50, r=30, t=30, b=50),
+        legend=dict(x=0.02, y=0.98),
+        plot_bgcolor="white",
+        yaxis=dict(range=[-0.08, 1.12]),
+    )
+
+    mo.center(_fig_sig)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     We interpret $\hat{y} = \sigma(s) = \sigma(\mathbf{q}_i \cdot \mathbf{k}_j)$ as the predicted probability that the pair $(i, j)$ is a genuine co-occurrence.
 
     ### 4. Loss function (binary cross-entropy)
