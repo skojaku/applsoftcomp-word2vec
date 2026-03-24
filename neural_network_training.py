@@ -6,13 +6,18 @@
 #   "matplotlib>=3.7",
 #   "Pillow>=10.0",
 #   "plotly>=5.0",
+#   "scikit-learn>=1.3",
 # ]
 # ///
 
 import marimo
 
 __generated_with = "0.21.1"
-app = marimo.App(width="medium", css_file="marimo_lecture_note_theme.css")
+app = marimo.App(
+    width="medium",
+    layout_file="layouts/neural_network_training.grid.json",
+    css_file="marimo_lecture_note_theme.css",
+)
 
 
 @app.cell(hide_code=True)
@@ -1088,59 +1093,39 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Query and Key — Two Roles of a Word
+    ### Query and Key: Two Roles of a Word
 
-    Look at the sliding window again. In the sentence *"the quick brown fox jumps over the lazy dog"* with window size ±2, when the window is centred on **"fox"**, "fox" is the *focal word* and {"brown", "quick", "jumps", "over"} are *context words*. But when we slide the window to **"jumps"**, "jumps" becomes focal and "fox" becomes context.
+    In the sentence *"the quick brown fox jumps over the lazy dog"* with window size ±2, when the window is centred on **"fox"**, "fox" is the *focal word* and {"brown", "quick", "jumps", "over"} are *context words*. But when we slide the window to **"jumps"**, "jumps" becomes focal and "fox" becomes context.
 
-    The same word plays **two different roles** depending on where the window sits:
-
-    | Role | Also called | Example |
-    |------|-------------|---------|
-    | **Focal** (centre of the window) | *query* | "fox" when the window is centred on "fox" |
-    | **Context** (neighbour) | *key* | "fox" when the window is centred on "jumps" |
-
-    Because these roles are fundamentally different, we give each its own neural network (i.e., its own weight matrix):
+    The same word plays *two different roles* depending on where the window sits. Because these roles can be different, we give each its own neural network (i.e., its own weight matrix):
 
     $$W_Q \in \mathbb{R}^{K \times V} \quad \text{(query matrix — for the focal role)}$$
     $$W_K \in \mathbb{R}^{K \times V} \quad \text{(key matrix — for the context role)}$$
 
-    where $V$ is the vocabulary size and $K$ is the embedding dimension. Each matrix maps a one-hot vector $\mathbf{x}_i \in \{0,1\}^V$ to a $K$-dimensional vector:
+    where $V$ is the vocabulary size and $K$ is the embedding dimension.
+    Each matrix maps a one-hot vector $\mathbf{x}_i \in \{0,1\}^V$ to a $K$-dimensional vector:
 
     $$\mathbf{q}_i = W_Q\,\mathbf{x}_i \qquad \text{(query vector of word } i\text{)}$$
     $$\mathbf{k}_i = W_K\,\mathbf{x}_i \qquad \text{(key vector of word } i\text{)}$$
 
-    Every word now has **two** embedding vectors — one for each role. The weights are **not shared**; they are learned independently.
-    """)
-    return
+    Every word now has *two* embedding vectors, one for each role.
 
+    ### Training
 
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Training — From Dot Products to Gradient Descent
-
-    ### 1. Alignment score
-
-    Given a focal word $i$ and a context word $j$ from the sliding window, we measure how well they "fit" together with the dot product of their embeddings:
+    Now, let's go closer into the training step. Given a focal word $i$ and a context word $j$ from the sliding window, we measure how well they "fit" together with the dot product of their embeddings:
 
     $$s = \mathbf{q}_i \cdot \mathbf{k}_j$$
 
-    A large positive $s$ means the model thinks $j$ is a likely context for $i$; a large negative $s$ means unlikely.
+    A large positive $s$ means the model thinks $j$ is a likely context for $i$; a large negative $s$ means unlikely. See the following interactive visualization to understand how the angle and length of the vectors affect the dot product score.
     """)
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    dot_angle_slider = mo.ui.slider(
-        start=0, stop=360, step=1, value=45, label="Angle of **k** (degrees)"
-    )
-    dot_len_q_slider = mo.ui.slider(
-        start=0.1, stop=2.0, step=0.05, value=1.0, label="Length of **q**"
-    )
-    dot_len_k_slider = mo.ui.slider(
-        start=0.1, stop=2.0, step=0.05, value=1.0, label="Length of **k**"
-    )
+    dot_angle_slider = mo.ui.slider(start=0, stop=360, step=1, value=45, label="Angle of **k** (degrees)")
+    dot_len_q_slider = mo.ui.slider(start=0.1, stop=2.0, step=0.05, value=1.0, label="Length of **q**")
+    dot_len_k_slider = mo.ui.slider(start=0.1, stop=2.0, step=0.05, value=1.0, label="Length of **k**")
     return dot_angle_slider, dot_len_k_slider, dot_len_q_slider
 
 
@@ -1164,28 +1149,44 @@ def _(dot_angle_slider, dot_len_k_slider, dot_len_q_slider, mo):
 
     # --- Build figure with subplots: vectors on left, bar on right ---
     _fig = _make_subplots(
-        rows=1, cols=2, column_widths=[0.75, 0.25],
+        rows=1,
+        cols=2,
+        column_widths=[0.75, 0.25],
         horizontal_spacing=0.08,
         subplot_titles=("Vectors", "Dot product"),
     )
+
 
     # Arrow helper: line + arrowhead annotation
     def _add_arrow(fig, x, y, color, name, row, col):
         fig.add_trace(
             _go_dot.Scatter(
-                x=[0, x], y=[0, y], mode="lines",
-                line=dict(color=color, width=3), name=name,
+                x=[0, x],
+                y=[0, y],
+                mode="lines",
+                line=dict(color=color, width=3),
+                name=name,
                 showlegend=True,
             ),
-            row=row, col=col,
+            row=row,
+            col=col,
         )
         fig.add_annotation(
-            x=x, y=y, ax=0, ay=0,
-            xref=f"x{'' if col == 1 else col}", yref=f"y{'' if col == 1 else col}",
-            axref=f"x{'' if col == 1 else col}", ayref=f"y{'' if col == 1 else col}",
-            showarrow=True, arrowhead=2, arrowsize=1.5, arrowwidth=3,
+            x=x,
+            y=y,
+            ax=0,
+            ay=0,
+            xref=f"x{'' if col == 1 else col}",
+            yref=f"y{'' if col == 1 else col}",
+            axref=f"x{'' if col == 1 else col}",
+            ayref=f"y{'' if col == 1 else col}",
+            showarrow=True,
+            arrowhead=2,
+            arrowsize=1.5,
+            arrowwidth=3,
             arrowcolor=color,
         )
+
 
     _add_arrow(_fig, _qx, _qy, "#1971c2", "q (query)", 1, 1)
     _add_arrow(_fig, _kx, _ky, "#e03131", "k (key)", 1, 1)
@@ -1197,10 +1198,12 @@ def _(dot_angle_slider, dot_len_k_slider, dot_len_q_slider, mo):
         _go_dot.Scatter(
             x=(_arc_r * _np_dot.cos(_arc_t)).tolist(),
             y=(_arc_r * _np_dot.sin(_arc_t)).tolist(),
-            mode="lines", line=dict(color="#888", width=1.5, dash="dot"),
+            mode="lines",
+            line=dict(color="#888", width=1.5, dash="dot"),
             showlegend=False,
         ),
-        row=1, col=1,
+        row=1,
+        col=1,
     )
 
     # Angle label
@@ -1208,21 +1211,27 @@ def _(dot_angle_slider, dot_len_k_slider, dot_len_q_slider, mo):
     _fig.add_annotation(
         x=float((_arc_r + 0.15) * _np_dot.cos(_mid_angle)),
         y=float((_arc_r + 0.15) * _np_dot.sin(_mid_angle)),
-        text=f"{_angle_deg}°", showarrow=False,
+        text=f"{_angle_deg}°",
+        showarrow=False,
         font=dict(size=12, color="#555"),
-        xref="x", yref="y",
+        xref="x",
+        yref="y",
     )
 
     # Dot product bar
     _bar_color = "#0c8599" if _dot >= 0 else "#d62728"
     _fig.add_trace(
         _go_dot.Bar(
-            x=["q · k"], y=[_dot],
-            marker_color=_bar_color, showlegend=False,
-            text=[f"{_dot:.2f}"], textposition="outside",
+            x=["q · k"],
+            y=[_dot],
+            marker_color=_bar_color,
+            showlegend=False,
+            text=[f"{_dot:.2f}"],
+            textposition="outside",
             textfont=dict(size=16, color=_bar_color),
         ),
-        row=1, col=2,
+        row=1,
+        col=2,
     )
 
     # Layout
@@ -1234,32 +1243,33 @@ def _(dot_angle_slider, dot_len_k_slider, dot_len_q_slider, mo):
     _fig.update_yaxes(range=[-_bar_lim, _bar_lim], zeroline=True, showticklabels=False, row=1, col=2)
 
     _fig.update_layout(
-        height=400, margin=dict(l=40, r=40, t=40, b=40),
+        height=400,
+        margin=dict(l=40, r=40, t=40, b=40),
         legend=dict(x=0.01, y=0.99),
         plot_bgcolor="white",
     )
 
-    mo.vstack([
-        mo.hstack([dot_angle_slider, dot_len_q_slider, dot_len_k_slider], justify="center"),
-        _fig,
-    ])
+    mo.vstack(
+        [
+            mo.hstack([dot_angle_slider, dot_len_q_slider, dot_len_k_slider], justify="center"),
+            _fig,
+        ]
+    )
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### 2. The problem: turning a score into a probability
+    ### The problem: turning a score into a probability
 
     The score $s$ can be any real number $(-\infty, +\infty)$, but we need a probability $\hat{y} \in (0,1)$: *"how likely is this pair to be a real co-occurrence?"*. We also need the function to be smooth (differentiable) so we can use gradient descent.
 
-    ### 3. Logistic (sigmoid) function
-
-    The **sigmoid function** does exactly this:
+    The *sigmoid function* does exactly this:
 
     $$\sigma(s) = \frac{1}{1 + e^{-s}}$$
 
-    You can think of the sigmoid as a **smooth version of a step function**: a step function snaps from 0 to 1 at $s=0$, but the sigmoid makes that transition gradual and differentiable — which is exactly what gradient descent needs.
+    You can think of the sigmoid as a *smooth version of a step function* used in Rosenblatt's neural networks. A step function snaps from 0 to 1 at $s=0$, but the sigmoid makes that transition gradual and differentiable, so that we can take a gradient to optimize the likelihood function.
     """)
     return
 
@@ -1276,30 +1286,35 @@ def _(mo):
     _fig_sig = _go_sig.Figure()
 
     # Step function
-    _fig_sig.add_trace(_go_sig.Scatter(
-        x=_s.tolist(), y=_step.tolist(),
-        mode="lines", name="Step function",
-        line=dict(color="#aaa", width=2, dash="dash"),
-    ))
+    _fig_sig.add_trace(
+        _go_sig.Scatter(
+            x=_s.tolist(),
+            y=_step.tolist(),
+            mode="lines",
+            name="Step function",
+            line=dict(color="#aaa", width=2, dash="dash"),
+        )
+    )
 
     # Sigmoid
-    _fig_sig.add_trace(_go_sig.Scatter(
-        x=_s.tolist(), y=_sigmoid.tolist(),
-        mode="lines", name="σ(s) = 1 / (1 + e⁻ˢ)",
-        line=dict(color="#1971c2", width=3),
-    ))
+    _fig_sig.add_trace(
+        _go_sig.Scatter(
+            x=_s.tolist(),
+            y=_sigmoid.tolist(),
+            mode="lines",
+            name="σ(s) = 1 / (1 + e⁻ˢ)",
+            line=dict(color="#1971c2", width=3),
+        )
+    )
 
     # Reference lines
     _fig_sig.add_hline(y=0.5, line_dash="dot", line_color="#ccc", line_width=1)
     _fig_sig.add_vline(x=0, line_dash="dot", line_color="#ccc", line_width=1)
 
     # Annotations
-    _fig_sig.add_annotation(x=6, y=0.95, text="→ 1 (likely pair)", showarrow=False,
-                            font=dict(size=12, color="#0c8599"))
-    _fig_sig.add_annotation(x=-6, y=0.05, text="→ 0 (unlikely pair)", showarrow=False,
-                            font=dict(size=12, color="#e03131"))
-    _fig_sig.add_annotation(x=0.8, y=0.55, text="σ(0) = 0.5", showarrow=False,
-                            font=dict(size=11, color="#555"))
+    _fig_sig.add_annotation(x=6, y=0.95, text="→ 1 (likely pair)", showarrow=False, font=dict(size=12, color="#0c8599"))
+    _fig_sig.add_annotation(x=-6, y=0.05, text="→ 0 (unlikely pair)", showarrow=False, font=dict(size=12, color="#e03131"))
+    _fig_sig.add_annotation(x=0.8, y=0.55, text="σ(0) = 0.5", showarrow=False, font=dict(size=11, color="#555"))
 
     _fig_sig.update_layout(
         xaxis_title="s = q · k",
@@ -1320,50 +1335,398 @@ def _(mo):
     mo.md(r"""
     We interpret $\hat{y} = \sigma(s) = \sigma(\mathbf{q}_i \cdot \mathbf{k}_j)$ as the predicted probability that the pair $(i, j)$ is a genuine co-occurrence.
 
-    ### 4. Loss function (binary cross-entropy)
+    Armed with the sigmoid function, let us be concrete on the objective function to train the word embeddings. Let $y = 1$ for a real (positive) pair and $y = 0$ for a fake (negative) pair. The probability that a model classifies a pair correctly is:
 
-    Let $y = 1$ for a real (positive) pair and $y = 0$ for a fake (negative) pair. The loss for one pair is:
+    $$
+    P(y = \hat{y}) = \sigma(s)^y \cdot (1-\sigma(s))^{1-y}
+    $$
+
+    We will work with the minus of the logarithm of the probability, called loss (or negative log-likelihood):
 
     $$L = -\bigl[\,y \ln \sigma(s) \;+\; (1-y) \ln\bigl(1-\sigma(s)\bigr)\,\bigr]$$
 
-    This penalises the model when its prediction $\sigma(s)$ is far from the true label $y$.
+    This penalises the model when its prediction $\sigma(s)$ is far from the true label $y$. Since the loss is convex and differentiable, we can minimize it with gradient descent. More specifically, we will compute:
 
-    ### 5. Gradient derivation (step by step)
+    \[
+    \frac{\partial L}{\partial \mathbf{q}_i}, \quad \frac{\partial L}{\partial \mathbf{k}_j}
+    \]
 
-    We need $\frac{\partial L}{\partial \mathbf{q}_i}$ and $\frac{\partial L}{\partial \mathbf{k}_j}$ to update the embeddings.
+    to update the embeddings. Here are the final rule. I keep the intermediate steps for you as your assignment.
 
-    **Step 1 — Derivative of the sigmoid:**
-    $$\sigma'(s) = \sigma(s)\bigl(1-\sigma(s)\bigr)$$
-
-    **Step 2 — Derivative of the loss w.r.t. the score $s$:**
-    $$\frac{\partial L}{\partial s} = \sigma(s) - y$$
-
-    (This clean result follows from combining the log derivatives with the sigmoid identity above.)
-
-    **Step 3 — Derivative of the score w.r.t. the embeddings:**
-    $$\frac{\partial s}{\partial \mathbf{q}_i} = \mathbf{k}_j, \qquad \frac{\partial s}{\partial \mathbf{k}_j} = \mathbf{q}_i$$
-
-    **Step 4 — Chain rule:**
-    $$\frac{\partial L}{\partial \mathbf{q}_i} = \bigl(\sigma(s)-y\bigr)\,\mathbf{k}_j, \qquad \frac{\partial L}{\partial \mathbf{k}_j} = \bigl(\sigma(s)-y\bigr)\,\mathbf{q}_i$$
-
-    ### 6. Update rule (gradient descent)
+    /// Note | Update rule
 
     With learning rate $\eta$:
 
     $$\mathbf{q}_i \;\leftarrow\; \mathbf{q}_i \;-\; \eta\bigl(\sigma(s)-y\bigr)\,\mathbf{k}_j$$
     $$\mathbf{k}_j \;\leftarrow\; \mathbf{k}_j \;-\; \eta\bigl(\sigma(s)-y\bigr)\,\mathbf{q}_i$$
 
-    **Intuition:**
     - For a **positive pair** ($y=1$): $\sigma(s)-1 < 0$, so both vectors are nudged *toward* each other — increasing their dot product.
     - For a **negative pair** ($y=0$): $\sigma(s)-0 > 0$, so both vectors are pushed *apart* — decreasing their dot product.
 
-    ### 7. Scaling to real corpora — Word2Vec
+    ///
 
-    This is exactly the **skip-gram with negative sampling** algorithm (Mikolov et al., 2013). Applied to billions of $(focal, context)$ pairs from a large text corpus, with $K = 300$ dimensions, it produces embeddings where geometry encodes meaning:
+    This is exactly the **skip-gram with negative sampling** algorithm (Mikolov et al., 2013). Applied to billions of $(focal, context)$ pairs from a large text corpus!
+    """)
+    return
 
-    $$\mathbf{q}_{\text{king}} - \mathbf{q}_{\text{man}} + \mathbf{q}_{\text{woman}} \approx \mathbf{q}_{\text{queen}}$$
 
-    No human labels — just co-occurrence statistics and gradient descent.
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ---
+
+    ## Part III — Exploring Pre-trained Word Embeddings (Word2Vec)
+
+    Now let's explore **real** word embeddings trained on Google News (~100 billion words).
+    The model below contains **~130,000 words** compressed from the original 300-dimensional space to 197 dimensions via PCA (retaining ~80% of variance).
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    from pathlib import Path as _Path
+
+    import numpy as _np_w2v
+
+    _roots = []
+    try:
+        _roots.append(_Path(__file__).resolve().parent)
+    except NameError:
+        pass
+    _roots.append(_Path.cwd())
+
+    _w2v_path = None
+    for _r in _roots:
+        _cand = _r / "data" / "word2vec" / "word2vec-compact.npz"
+        if _cand.is_file():
+            _w2v_path = _cand
+            break
+
+    if _w2v_path is None:
+        mo.callout(
+            mo.md(
+                "**Missing `data/word2vec/word2vec-compact.npz`.** From the project root run:\n\n"
+                "```\nuv run scripts/prepare_word2vec.py\n```\n\n"
+                "That downloads Word2Vec once (~1.7 GB), then saves a compact version here. "
+                "Re-open the notebook after it finishes."
+            ),
+            kind="danger",
+        )
+        raise FileNotFoundError("data/word2vec/word2vec-compact.npz not found (run scripts/prepare_word2vec.py)")
+
+    _data = _np_w2v.load(_w2v_path, allow_pickle=True)
+    w2v_words = list(_data["words"])
+    w2v_vectors = _data["vectors"].astype(_np_w2v.float32)
+    w2v_index = {w: i for i, w in enumerate(w2v_words)}
+
+    # Precompute norms for cosine similarity
+    _norms = _np_w2v.linalg.norm(w2v_vectors, axis=1, keepdims=True)
+    _norms = _np_w2v.where(_norms < 1e-12, 1.0, _norms)
+    w2v_normed = w2v_vectors / _norms
+
+    mo.callout(
+        mo.md(f"Loaded **{len(w2v_words):,}** words × **{w2v_vectors.shape[1]}** dimensions from `{_w2v_path.name}`"),
+        kind="success",
+    )
+    return w2v_index, w2v_normed, w2v_vectors, w2v_words
+
+
+@app.cell(hide_code=True)
+def _(w2v_index, w2v_normed, w2v_words):
+    import numpy as _np_helpers
+
+    def most_similar(word, topn=10):
+        """Find the most similar words by cosine similarity."""
+        if word not in w2v_index:
+            return []
+        idx = w2v_index[word]
+        sims = w2v_normed @ w2v_normed[idx]
+        top_ids = _np_helpers.argsort(sims)[::-1][1 : topn + 1]
+        return [(w2v_words[i], float(sims[i])) for i in top_ids]
+
+    def analogy(a, b, c, topn=5):
+        """Solve a:b :: c:? by computing vec(b) - vec(a) + vec(c)."""
+        for w in (a, b, c):
+            if w not in w2v_index:
+                return []
+        vec = w2v_normed[w2v_index[b]] - w2v_normed[w2v_index[a]] + w2v_normed[w2v_index[c]]
+        norm = _np_helpers.linalg.norm(vec)
+        if norm < 1e-12:
+            return []
+        vec = vec / norm
+        sims = w2v_normed @ vec
+        exclude = {w2v_index[a], w2v_index[b], w2v_index[c]}
+        top_ids = _np_helpers.argsort(sims)[::-1]
+        results = []
+        for i in top_ids:
+            if int(i) not in exclude:
+                results.append((w2v_words[i], float(sims[i])))
+                if len(results) >= topn:
+                    break
+        return results
+
+    return analogy, most_similar
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Find similar words
+
+    Type a word below to find its nearest neighbours in the embedding space.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    sim_input = mo.ui.text(value="king", label="Word", full_width=False)
+    sim_topn = mo.ui.slider(start=5, stop=30, step=1, value=10, label="Top N")
+    return sim_input, sim_topn
+
+
+@app.cell(hide_code=True)
+def _(mo, most_similar, sim_input, sim_topn, w2v_index):
+    _word = sim_input.value.strip().lower()
+    _controls = mo.hstack([sim_input, sim_topn], justify="start", gap=1)
+
+    if _word not in w2v_index:
+        mo.vstack([
+            _controls,
+            mo.callout(mo.md(f'**"{_word}"** not found in vocabulary. Try another word.'), kind="warn"),
+        ])
+    else:
+        _results = most_similar(_word, topn=sim_topn.value)
+        _rows = "\n".join(
+            f"| {i+1} | {w} | {s:.4f} |" for i, (w, s) in enumerate(_results)
+        )
+        _table = f"| Rank | Word | Cosine similarity |\n|---:|:---|---:|\n{_rows}"
+        mo.vstack([
+            _controls,
+            mo.md(f'**Most similar to "{_word}":**'),
+            mo.md(_table),
+        ])
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Word analogies
+
+    Word embeddings capture semantic relationships as **vector arithmetic**.
+    The classic example: *king - man + woman ≈ queen*.
+
+    Enter three words below to solve **a : b :: c : ?**
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    analogy_a = mo.ui.text(value="man", label="a", full_width=False)
+    analogy_b = mo.ui.text(value="king", label="b", full_width=False)
+    analogy_c = mo.ui.text(value="woman", label="c", full_width=False)
+    return analogy_a, analogy_b, analogy_c
+
+
+@app.cell(hide_code=True)
+def _(analogy, analogy_a, analogy_b, analogy_c, mo, w2v_index):
+    _a = analogy_a.value.strip()
+    _b = analogy_b.value.strip()
+    _c = analogy_c.value.strip()
+
+    _controls = mo.hstack(
+        [analogy_a, mo.md("**:**"), analogy_b, mo.md("**::**"), analogy_c, mo.md("**: ?**")],
+        justify="start",
+        gap=0.5,
+        align="center",
+    )
+
+    _missing = [w for w in (_a, _b, _c) if w not in w2v_index]
+    if _missing:
+        mo.vstack([
+            _controls,
+            mo.callout(mo.md(f'Not found in vocabulary: **{", ".join(_missing)}**'), kind="warn"),
+        ])
+    else:
+        _results = analogy(_a, _b, _c, topn=5)
+        _rows = "\n".join(
+            f"| {i+1} | {w} | {s:.4f} |" for i, (w, s) in enumerate(_results)
+        )
+        _table = f"| Rank | Word | Score |\n|---:|:---|---:|\n{_rows}"
+        mo.vstack([
+            _controls,
+            mo.md(f"**{_a} : {_b} :: {_c} : ?**"),
+            mo.md(_table),
+        ])
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Visualizing semantic relationships
+
+    Word embeddings capture **parallel structures**. For example, the vector from a country to its capital is roughly the same direction for all countries. We can visualize this by projecting the embeddings into 2D with PCA.
+
+    Select a relationship type below or enter your own word pairs.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    _presets = {
+        "Countries → Capitals": "Germany:Berlin, France:Paris, Italy:Rome, Spain:Madrid, Portugal:Lisbon, Greece:Athens",
+        "Languages → Countries": "Spanish:Spain, French:France, German:Germany, Italian:Italy, Japanese:Japan, Chinese:China",
+        "Professions → Workplaces": "doctor:hospital, teacher:school, chef:restaurant, pilot:airport, lawyer:court, farmer:farm",
+        "Custom": "",
+    }
+    viz_preset = mo.ui.dropdown(
+        options=list(_presets.keys()),
+        value="Countries → Capitals",
+        label="Preset",
+    )
+    viz_pairs_input = mo.ui.text_area(
+        value=_presets["Countries → Capitals"],
+        label="Word pairs (A:B, separated by commas)",
+        full_width=True,
+        rows=2,
+    )
+    return viz_pairs_input, viz_preset
+
+
+@app.cell(hide_code=True)
+def _(mo, viz_pairs_input, viz_preset, w2v_index, w2v_vectors):
+    import numpy as _np_viz
+    from sklearn.decomposition import PCA as _PCA_viz
+    import plotly.graph_objects as _go_viz
+
+    # Resolve preset → populate pairs text
+    _presets_map = {
+        "Countries → Capitals": "Germany:Berlin, France:Paris, Italy:Rome, Spain:Madrid, Portugal:Lisbon, Greece:Athens",
+        "Languages → Countries": "Spanish:Spain, French:France, German:Germany, Italian:Italy, Japanese:Japan, Chinese:China",
+        "Professions → Workplaces": "doctor:hospital, teacher:school, chef:restaurant, pilot:airport, lawyer:court, farmer:farm",
+        "Custom": "",
+    }
+    _raw = viz_pairs_input.value.strip()
+    if viz_preset.value != "Custom" and not _raw:
+        _raw = _presets_map.get(viz_preset.value, "")
+
+    # Parse pairs
+    _pairs = []
+    _errors = []
+    for chunk in _raw.split(","):
+        chunk = chunk.strip()
+        if ":" not in chunk:
+            continue
+        parts = chunk.split(":", 1)
+        a, b = parts[0].strip(), parts[1].strip()
+        if a not in w2v_index:
+            _errors.append(a)
+        if b not in w2v_index:
+            _errors.append(b)
+        if a in w2v_index and b in w2v_index:
+            _pairs.append((a, b))
+
+    _controls = mo.hstack([viz_preset, viz_pairs_input], widths=[1, 3], gap=1)
+
+    if _errors:
+        mo.vstack([
+            _controls,
+            mo.callout(mo.md(f'Words not in vocabulary: **{", ".join(_errors)}**'), kind="warn"),
+        ])
+    elif len(_pairs) < 2:
+        mo.vstack([
+            _controls,
+            mo.callout(mo.md("Enter at least 2 word pairs (A:B format, comma-separated)."), kind="neutral"),
+        ])
+    else:
+        _group_a = [p[0] for p in _pairs]
+        _group_b = [p[1] for p in _pairs]
+        _all_words = _group_a + _group_b
+        _all_vecs = _np_viz.array([w2v_vectors[w2v_index[w]] for w in _all_words], dtype=_np_viz.float32)
+
+        _pca = _PCA_viz(n_components=2, random_state=42)
+        _coords = _pca.fit_transform(_all_vecs)
+
+        _n = len(_pairs)
+
+        _fig = _go_viz.Figure()
+
+        # Group A points
+        _fig.add_trace(_go_viz.Scatter(
+            x=_coords[:_n, 0].tolist(),
+            y=_coords[:_n, 1].tolist(),
+            mode="markers+text",
+            name="Group A",
+            text=_group_a,
+            textposition="top center",
+            marker=dict(color="#1f77b4", size=14, symbol="circle"),
+            textfont=dict(size=12),
+        ))
+
+        # Group B points
+        _fig.add_trace(_go_viz.Scatter(
+            x=_coords[_n:, 0].tolist(),
+            y=_coords[_n:, 1].tolist(),
+            mode="markers+text",
+            name="Group B",
+            text=_group_b,
+            textposition="top center",
+            marker=dict(color="#e03131", size=14, symbol="square"),
+            textfont=dict(size=12),
+        ))
+
+        # Arrows from A to B
+        for i in range(_n):
+            _fig.add_annotation(
+                x=float(_coords[_n + i, 0]),
+                y=float(_coords[_n + i, 1]),
+                ax=float(_coords[i, 0]),
+                ay=float(_coords[i, 1]),
+                xref="x", yref="y", axref="x", ayref="y",
+                showarrow=True,
+                arrowhead=2,
+                arrowsize=1.2,
+                arrowwidth=1.5,
+                arrowcolor="rgba(100,100,100,0.5)",
+            )
+
+        _var = _pca.explained_variance_ratio_
+        _fig.update_layout(
+            xaxis_title=f"PC1 ({_var[0]:.1%} var)",
+            yaxis_title=f"PC2 ({_var[1]:.1%} var)",
+            height=500,
+            margin=dict(l=50, r=30, t=30, b=50),
+            plot_bgcolor="white",
+            legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="left", x=0),
+            xaxis=dict(showgrid=True, gridcolor="#eee", zeroline=False, showticklabels=False),
+            yaxis=dict(showgrid=True, gridcolor="#eee", zeroline=False, scaleanchor="x", scaleratio=1, showticklabels=False),
+        )
+
+        mo.vstack([_controls, _fig])
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Exercises
+
+    1. Using the similar-words search above, find the 5 most similar words to **"computer"** and **"science"**. What do you observe about the semantic relationships?
+
+    2. Perform the following word analogy tasks and explain your findings:
+        - man : king :: woman : ?
+        - Paris : France :: Tokyo : ?
+        - car : cars :: child : ?
+
+    3. Using the visualization above, try:
+        - **Professions → Workplaces** (doctor:hospital, teacher:school, …)
+        - **Languages → Countries** (Spanish:Spain, French:France, …)
+        - Do the arrows point in a consistent direction? Why or why not?
     """)
     return
 
