@@ -13,11 +13,7 @@
 import marimo
 
 __generated_with = "0.21.1"
-app = marimo.App(
-    width="medium",
-    layout_file="layouts/neural_network_training.grid.json",
-    css_file="marimo_lecture_note_theme.css",
-)
+app = marimo.App(width="medium", css_file="marimo_lecture_note_theme.css")
 
 
 @app.cell(hide_code=True)
@@ -1383,56 +1379,7 @@ def _(mo):
     return
 
 
-@app.cell(hide_code=True)
-def _(mo):
-    from pathlib import Path as _Path
-
-    import numpy as _np_w2v
-
-    _roots = []
-    try:
-        _roots.append(_Path(__file__).resolve().parent)
-    except NameError:
-        pass
-    _roots.append(_Path.cwd())
-
-    _w2v_path = None
-    for _r in _roots:
-        _cand = _r / "data" / "word2vec" / "word2vec-compact.npz"
-        if _cand.is_file():
-            _w2v_path = _cand
-            break
-
-    if _w2v_path is None:
-        mo.callout(
-            mo.md(
-                "**Missing `data/word2vec/word2vec-compact.npz`.** From the project root run:\n\n"
-                "```\nuv run scripts/prepare_word2vec.py\n```\n\n"
-                "That downloads Word2Vec once (~1.7 GB), then saves a compact version here. "
-                "Re-open the notebook after it finishes."
-            ),
-            kind="danger",
-        )
-        raise FileNotFoundError("data/word2vec/word2vec-compact.npz not found (run scripts/prepare_word2vec.py)")
-
-    _data = _np_w2v.load(_w2v_path, allow_pickle=True)
-    w2v_words = list(_data["words"])
-    w2v_vectors = _data["vectors"].astype(_np_w2v.float32)
-    w2v_index = {w: i for i, w in enumerate(w2v_words)}
-
-    # Precompute norms for cosine similarity
-    _norms = _np_w2v.linalg.norm(w2v_vectors, axis=1, keepdims=True)
-    _norms = _np_w2v.where(_norms < 1e-12, 1.0, _norms)
-    w2v_normed = w2v_vectors / _norms
-
-    mo.callout(
-        mo.md(f"Loaded **{len(w2v_words):,}** words × **{w2v_vectors.shape[1]}** dimensions from `{_w2v_path.name}`"),
-        kind="success",
-    )
-    return w2v_index, w2v_normed, w2v_vectors, w2v_words
-
-
-@app.cell(hide_code=True)
+@app.cell
 def _(w2v_index, w2v_normed, w2v_words):
     import numpy as _np_helpers
 
@@ -1444,6 +1391,13 @@ def _(w2v_index, w2v_normed, w2v_words):
         sims = w2v_normed @ w2v_normed[idx]
         top_ids = _np_helpers.argsort(sims)[::-1][1 : topn + 1]
         return [(w2v_words[i], float(sims[i])) for i in top_ids]
+
+    return (most_similar,)
+
+
+@app.cell
+def _(w2v_index, w2v_normed, w2v_words):
+    import numpy as _np_helpers
 
     def analogy(a, b, c, topn=5):
         """Solve a:b :: c:? by computing vec(b) - vec(a) + vec(c)."""
@@ -1466,7 +1420,26 @@ def _(w2v_index, w2v_normed, w2v_words):
                     break
         return results
 
-    return analogy, most_similar
+    return (analogy,)
+
+
+@app.cell(hide_code=True)
+def _():
+    from pathlib import Path as _Path
+
+    import numpy as _np_w2v
+
+    _w2v_path = "data/word2vec/word2vec-compact.npz"
+    _data = _np_w2v.load(_w2v_path, allow_pickle=True)
+    w2v_words = list(_data["words"])
+    w2v_vectors = _data["vectors"].astype(_np_w2v.float32)
+    w2v_index = {w: i for i, w in enumerate(w2v_words)}
+
+    # Precompute norms for cosine similarity
+    _norms = _np_w2v.linalg.norm(w2v_vectors, axis=1, keepdims=True)
+    _norms = _np_w2v.where(_norms < 1e-12, 1.0, _norms)
+    w2v_normed = w2v_vectors / _norms
+    return w2v_index, w2v_normed, w2v_vectors, w2v_words
 
 
 @app.cell(hide_code=True)
@@ -1491,8 +1464,9 @@ def _(mo, most_similar, sim_input, sim_topn, w2v_index):
     _word = sim_input.value.strip().lower()
     _controls = mo.hstack([sim_input, sim_topn], justify="start", gap=1)
 
+    _ret = None
     if _word not in w2v_index:
-        mo.vstack([
+        _ret = mo.vstack([
             _controls,
             mo.callout(mo.md(f'**"{_word}"** not found in vocabulary. Try another word.'), kind="warn"),
         ])
@@ -1502,11 +1476,12 @@ def _(mo, most_similar, sim_input, sim_topn, w2v_index):
             f"| {i+1} | {w} | {s:.4f} |" for i, (w, s) in enumerate(_results)
         )
         _table = f"| Rank | Word | Cosine similarity |\n|---:|:---|---:|\n{_rows}"
-        mo.vstack([
+        _ret = mo.vstack([
             _controls,
             mo.md(f'**Most similar to "{_word}":**'),
             mo.md(_table),
         ])
+    _ret
     return
 
 
@@ -1546,7 +1521,7 @@ def _(analogy, analogy_a, analogy_b, analogy_c, mo, w2v_index):
 
     _missing = [w for w in (_a, _b, _c) if w not in w2v_index]
     if _missing:
-        mo.vstack([
+        _ret = mo.vstack([
             _controls,
             mo.callout(mo.md(f'Not found in vocabulary: **{", ".join(_missing)}**'), kind="warn"),
         ])
@@ -1556,11 +1531,12 @@ def _(analogy, analogy_a, analogy_b, analogy_c, mo, w2v_index):
             f"| {i+1} | {w} | {s:.4f} |" for i, (w, s) in enumerate(_results)
         )
         _table = f"| Rank | Word | Score |\n|---:|:---|---:|\n{_rows}"
-        mo.vstack([
+        _ret = mo.vstack([
             _controls,
             mo.md(f"**{_a} : {_b} :: {_c} : ?**"),
             mo.md(_table),
         ])
+    _ret
     return
 
 
@@ -1611,9 +1587,10 @@ def _(mo, viz_pairs_input, viz_preset, w2v_index, w2v_vectors):
         "Professions → Workplaces": "doctor:hospital, teacher:school, chef:restaurant, pilot:airport, lawyer:court, farmer:farm",
         "Custom": "",
     }
-    _raw = viz_pairs_input.value.strip()
-    if viz_preset.value != "Custom" and not _raw:
+    if viz_preset.value != "Custom":
         _raw = _presets_map.get(viz_preset.value, "")
+    else:
+        _raw = viz_pairs_input.value.strip()
 
     # Parse pairs
     _pairs = []
@@ -1639,7 +1616,7 @@ def _(mo, viz_pairs_input, viz_preset, w2v_index, w2v_vectors):
             mo.callout(mo.md(f'Words not in vocabulary: **{", ".join(_errors)}**'), kind="warn"),
         ])
     elif len(_pairs) < 2:
-        mo.vstack([
+        _ret = mo.vstack([
             _controls,
             mo.callout(mo.md("Enter at least 2 word pairs (A:B format, comma-separated)."), kind="neutral"),
         ])
@@ -1707,7 +1684,8 @@ def _(mo, viz_pairs_input, viz_preset, w2v_index, w2v_vectors):
             yaxis=dict(showgrid=True, gridcolor="#eee", zeroline=False, scaleanchor="x", scaleratio=1, showticklabels=False),
         )
 
-        mo.vstack([_controls, _fig])
+        _ret = mo.vstack([_controls, _fig])
+    _ret
     return
 
 
